@@ -1,0 +1,17 @@
+project(EchoServer)
+project(EchoClient)
+project(BandwidthServer)
+project(BandwidthClient)
+
+add_executable(EchoServer echo_server.cc)
+add_executable(EchoClient echo_client.cc)
+add_executable(BandwidthServer bandwidth_server.cc)
+add_executable(BandwidthClient bandwidth_client.cc)
+
+if (USE_RDMA)
+    add_definitions(-DUSE_RDMA)
+    target_link_libraries(EchoServer rdmacm)
+    target_link_libraries(EchoClient rdmacm)
+    target_link_libraries(BandwidthServer rdmacm)
+    target_link_libraries(BandwidthClient rdmacm)
+endif (USE_RDMA)
