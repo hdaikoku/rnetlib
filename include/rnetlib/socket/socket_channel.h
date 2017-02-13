@@ -23,7 +23,7 @@ class SocketChannel : public Channel, public SocketCommon {
 
   SocketChannel(int sock_fd) : SocketCommon(sock_fd) {}
 
-  size_t Send(const void *buf, size_t len) const override {
+  size_t Send(void *buf, size_t len) const override {
     size_t offset = 0;
 
     while (offset < len) {

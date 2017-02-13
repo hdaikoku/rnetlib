@@ -9,7 +9,7 @@ namespace rnetlib {
 class Channel {
  public:
 
-  virtual size_t Send(const void *buf, size_t len) const = 0;
+  virtual size_t Send(void *buf, size_t len) const = 0;
 
   virtual size_t Recv(void *buf, size_t len) const = 0;
 
