@@ -2,14 +2,13 @@
 // Created by Harunobu Daikoku on 2017/02/10.
 //
 
-#ifndef RNETLIB_SOCKET_SERVER_CHANNEL_H
-#define RNETLIB_SOCKET_SERVER_CHANNEL_H
+#ifndef RNETLIB_SOCKET_SOCKET_SERVER_H
+#define RNETLIB_SOCKET_SOCKET_SERVER_H
 
 #include <cerrno>
 
 #include "rnetlib/server.h"
 #include "rnetlib/socket/socket_channel.h"
-#include "rnetlib/socket/socket_common.h"
 
 #ifdef USE_RDMA
 // rsocket-specific functions
@@ -72,4 +71,4 @@ class SocketServer : public Server, public SocketCommon {
 }
 }
 
-#endif //RNETLIB_SOCKET_SERVER_CHANNEL_H
+#endif //RNETLIB_SOCKET_SOCKET_SERVER_H

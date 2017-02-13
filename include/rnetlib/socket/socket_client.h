@@ -2,8 +2,8 @@
 // Created by Harunobu Daikoku on 2017/02/10.
 //
 
-#ifndef RNETLIB_SOCKET_SOCKET_CLIENT_CHANNEL_H
-#define RNETLIB_SOCKET_SOCKET_CLIENT_CHANNEL_H
+#ifndef RNETLIB_SOCKET_SOCKET_CLIENT_H
+#define RNETLIB_SOCKET_SOCKET_CLIENT_H
 
 #include <cerrno>
 #include <chrono>
@@ -76,4 +76,4 @@ class SocketClient : public Client, public SocketCommon {
 }
 }
 
-#endif //RNETLIB_SOCKET_SOCKET_CLIENT_CHANNEL_H
+#endif //RNETLIB_SOCKET_SOCKET_CLIENT_H
