@@ -13,6 +13,7 @@
 
 #include "rnetlib/channel.h"
 #include "rnetlib/socket/socket_common.h"
+#include "rnetlib/socket/socket_registered_memory.h"
 
 namespace rnetlib {
 namespace socket {
@@ -53,6 +54,17 @@ class SocketChannel : public Channel, public SocketCommon {
     }
 
     return offset;
+  }
+
+  size_t Send(RegisteredMemory &mem) const override {
+    return Send(mem.GetAddr(), mem.GetLength());
+  }
+  size_t Recv(RegisteredMemory &mem) const override {
+    return Recv(mem.GetAddr(), mem.GetLength());
+  }
+
+  std::unique_ptr<RegisteredMemory> RegisterMemory(void *addr, size_t len) const override {
+    return std::unique_ptr<RegisteredMemory>(new SocketRegisteredMemory(addr, len));
   }
 
  private:
