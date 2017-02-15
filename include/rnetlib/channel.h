@@ -19,7 +19,7 @@ class Channel {
 
   virtual size_t Recv(RegisteredMemory &mem) const = 0;
 
-  virtual std::unique_ptr<RegisteredMemory> RegisterMemory(void *addr, size_t len) const = 0;
+  virtual std::unique_ptr<RegisteredMemory> RegisterMemory(void *addr, size_t len, int type) const = 0;
 
 };
 }

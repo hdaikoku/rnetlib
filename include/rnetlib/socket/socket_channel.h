@@ -63,7 +63,7 @@ class SocketChannel : public Channel, public SocketCommon {
     return Recv(mem.GetAddr(), mem.GetLength());
   }
 
-  std::unique_ptr<RegisteredMemory> RegisterMemory(void *addr, size_t len) const override {
+  std::unique_ptr<RegisteredMemory> RegisterMemory(void *addr, size_t len, int type) const override {
     return std::unique_ptr<RegisteredMemory>(new SocketRegisteredMemory(addr, len));
   }
 

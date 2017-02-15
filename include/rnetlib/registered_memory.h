@@ -5,7 +5,14 @@
 #ifndef RNETLIB_REGISTERED_MEMORY_H
 #define RNETLIB_REGISTERED_MEMORY_H
 
+enum RMType {
+  RM_LOCAL_WRITE = (1 << 0),
+  RM_REMOTE_WRITE = (1 << 1),
+  RM_REMOTE_READ = (1 << 2)
+};
+
 namespace rnetlib {
+
 class RegisteredMemory {
  public:
 
