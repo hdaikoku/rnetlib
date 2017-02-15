@@ -2,19 +2,20 @@
 // Created by Harunobu Daikoku on 2017/02/14.
 //
 
-#ifndef RNETLIB_SOCKET_SOCKET_REGISTERED_MEMORY_H
-#define RNETLIB_SOCKET_SOCKET_REGISTERED_MEMORY_H
+#ifndef RNETLIB_SOCKET_SOCKET_LOCAL_MEMORY_REGION_H
+#define RNETLIB_SOCKET_SOCKET_LOCAL_MEMORY_REGION_H
 
 #include <cstddef>
 #include <cstdint>
-#include "rnetlib/registered_memory.h"
+
+#include "rnetlib/local_memory_region.h"
 
 namespace rnetlib {
 namespace socket {
-class SocketRegisteredMemory : public RegisteredMemory {
+class SocketLocalMemoryRegion : public LocalMemoryRegion {
  public:
 
-  SocketRegisteredMemory(void *addr, size_t length) : addr_(addr), length_(length) {}
+  SocketLocalMemoryRegion(void *addr, size_t length) : addr_(addr), length_(length) {}
 
   void *GetAddr() const override {
     return addr_;
@@ -40,4 +41,4 @@ class SocketRegisteredMemory : public RegisteredMemory {
 }
 }
 
-#endif //RNETLIB_SOCKET_SOCKET_REGISTERED_MEMORY_H
+#endif //RNETLIB_SOCKET_SOCKET_LOCAL_MEMORY_REGION_H

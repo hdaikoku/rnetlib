@@ -2,18 +2,17 @@
 // Created by Harunobu Daikoku on 2017/02/13.
 //
 
-#ifndef RNETLIB_REGISTERED_MEMORY_H
-#define RNETLIB_REGISTERED_MEMORY_H
+#ifndef RNETLIB_LOCAL_MEMORY_REGION_H
+#define RNETLIB_LOCAL_MEMORY_REGION_H
 
-enum RMType {
-  RM_LOCAL_WRITE = (1 << 0),
-  RM_REMOTE_WRITE = (1 << 1),
-  RM_REMOTE_READ = (1 << 2)
+enum MRType {
+  MR_LOCAL_WRITE = (1 << 0),
+  MR_REMOTE_WRITE = (1 << 1),
+  MR_REMOTE_READ = (1 << 2)
 };
 
 namespace rnetlib {
-
-class RegisteredMemory {
+class LocalMemoryRegion {
  public:
 
   virtual void *GetAddr() const = 0;
@@ -27,4 +26,4 @@ class RegisteredMemory {
 };
 }
 
-#endif //RNETLIB_REGISTERED_MEMORY_H
+#endif //RNETLIB_LOCAL_MEMORY_REGION_H

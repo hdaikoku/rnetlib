@@ -13,7 +13,7 @@
 
 #include "rnetlib/channel.h"
 #include "rnetlib/socket/socket_common.h"
-#include "rnetlib/socket/socket_registered_memory.h"
+#include "rnetlib/socket/socket_local_memory_region.h"
 
 namespace rnetlib {
 namespace socket {
@@ -56,15 +56,40 @@ class SocketChannel : public Channel, public SocketCommon {
     return offset;
   }
 
-  size_t Send(RegisteredMemory &mem) const override {
+  size_t Send(LocalMemoryRegion &mem) const override {
     return Send(mem.GetAddr(), mem.GetLength());
   }
-  size_t Recv(RegisteredMemory &mem) const override {
+
+  size_t Recv(LocalMemoryRegion &mem) const override {
     return Recv(mem.GetAddr(), mem.GetLength());
   }
 
-  std::unique_ptr<RegisteredMemory> RegisterMemory(void *addr, size_t len, int type) const override {
-    return std::unique_ptr<RegisteredMemory>(new SocketRegisteredMemory(addr, len));
+  size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
+    return Send(local_mem.GetAddr(), local_mem.GetLength());
+  }
+
+  size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
+    return Recv(local_mem.GetAddr(), local_mem.GetLength());
+  }
+
+  size_t PollWrite(LocalMemoryRegion &local_mem) const override {
+    return Recv(local_mem.GetAddr(), local_mem.GetLength());
+  }
+
+  size_t PollRead(LocalMemoryRegion &local_mem) const override {
+    return Send(local_mem.GetAddr(), local_mem.GetLength());
+  }
+
+  std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
+    return std::unique_ptr<LocalMemoryRegion>(new SocketLocalMemoryRegion(addr, len));
+  }
+
+  void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const override {
+
+  }
+
+  std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const override {
+    return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(nullptr, 0));;
   }
 
  private:
