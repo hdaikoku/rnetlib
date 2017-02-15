@@ -25,7 +25,7 @@ void do_pingpong(const Channel &channel, size_t msg_len) {
   auto end = std::chrono::steady_clock::now();
 
   auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
-  auto bw = (8.0 * msg_len) / dur;
+  auto bw = (4.0 * msg_len) / dur;
 
   std::cout << msg_len << "\t" << bw << std::endl;
 }
