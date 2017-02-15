@@ -13,19 +13,18 @@ void do_pingpong(const Channel &channel, size_t msg_len) {
   std::memset(msg.get(), 'a', msg_len);
 
   auto local_mem = channel.RegisterMemory(msg.get(), msg_len, MR_LOCAL_WRITE);
-  auto remote_mem = channel.AckRemoteMemoryRegion();
 
   auto beg = std::chrono::steady_clock::now();
-  for (int i = 0; i < 500; i++) {
-    if (channel.Write(*local_mem, *remote_mem) != msg_len) {
-      std::cerr << "ERROR: write" << std::endl;
+  for (int i = 0; i < 5000; i++) {
+    if (channel.Send(*local_mem) != msg_len) {
+      std::cerr << "ERROR: send" << std::endl;
       return;
     }
   }
   auto end = std::chrono::steady_clock::now();
 
   auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
-  auto bw = (4.0 * msg_len) / dur;
+  auto bw = (40. * msg_len) / dur;
 
   std::cout << msg_len << "\t" << bw << std::endl;
 }
