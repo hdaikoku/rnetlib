@@ -7,13 +7,12 @@
 
 #include "rnetlib/client.h"
 #include "rnetlib/server.h"
+#include "rnetlib/socket/socket_client.h"
+#include "rnetlib/socket/socket_server.h"
 
 #ifdef USE_RDMA
 #include "rnetlib/rdma/rdma_client.h"
 #include "rnetlib/rdma/rdma_server.h"
-#else
-#include "rnetlib/socket/socket_client.h"
-#include "rnetlib/socket/socket_server.h"
 #endif //USE_RDMA
 
 namespace rnetlib {
