@@ -31,9 +31,12 @@ namespace socket {
 class SocketClient : public Client, public SocketCommon {
  public:
 
+  SocketClient(const std::string &peer_addr, uint16_t peer_port)
+      : peer_addr_(peer_addr), peer_port_(peer_port) {}
+
   virtual ~SocketClient() {}
 
-  std::unique_ptr<Channel> Connect(const std::string &peer_addr, uint16_t peer_port) override {
+  std::unique_ptr<Channel> Connect() override {
     // TODO: timeout and backoff should be user-configurable
     auto timeout = std::chrono::minutes(3);
     int backoff_msecs = 1;
@@ -46,7 +49,7 @@ class SocketClient : public Client, public SocketCommon {
         return nullptr;
       }
 
-      auto addr_info = Init(peer_addr.c_str(), peer_port, 0);
+      auto addr_info = Init(peer_addr_.c_str(), peer_port_, 0);
       if (!addr_info) {
         // TODO: log error
         return nullptr;
@@ -71,6 +74,10 @@ class SocketClient : public Client, public SocketCommon {
       }
     }
   }
+
+ private:
+  std::string peer_addr_;
+  uint16_t peer_port_;
 
 };
 }

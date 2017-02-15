@@ -2,8 +2,8 @@
 // Created by Harunobu Daikoku on 2017/02/10.
 //
 
-#ifndef RNETLIB_SERVER_CHANNEL_H
-#define RNETLIB_SERVER_CHANNEL_H
+#ifndef RNETLIB_SERVER_H
+#define RNETLIB_SERVER_H
 
 #include <memory>
 
@@ -13,11 +13,11 @@ namespace rnetlib {
 class Server {
  public:
 
-  virtual bool Listen(uint16_t server_port) = 0;
+  virtual bool Listen() = 0;
 
   virtual std::unique_ptr<Channel> Accept() = 0;
 
 };
 }
 
-#endif //PROJECT_SERVER_CHANNEL_H
+#endif //RNETLIB_SERVER_H

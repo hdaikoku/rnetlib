@@ -32,8 +32,12 @@ namespace rnetlib {
 namespace socket {
 class SocketServer : public Server, public SocketCommon {
  public:
-  bool Listen(uint16_t server_port) override {
-    auto result = Init(nullptr, server_port, S_PASSIVE);
+
+  SocketServer(const std::string &bind_addr, uint16_t bind_port)
+      : bind_addr_(bind_addr), bind_port_(bind_port) {}
+
+  bool Listen() override {
+    auto result = Init(bind_addr_.c_str(), bind_port_, S_PASSIVE);
     if (!result) {
       return false;
     }
@@ -66,6 +70,10 @@ class SocketServer : public Server, public SocketCommon {
 
     return std::unique_ptr<Channel>(new SocketChannel(sock_fd));
   }
+
+ private:
+  std::string bind_addr_;
+  uint16_t bind_port_;
 
 };
 }

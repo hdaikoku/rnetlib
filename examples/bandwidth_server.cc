@@ -3,23 +3,20 @@
 //
 
 #include <iostream>
-#include <rnetlib/socket/socket_server.h>
+#include <rnetlib/rnetlib.h>
 
 using namespace rnetlib;
-using namespace rnetlib::socket;
 
 void do_pingpong(const Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 
-  for (int i = 0; i < 500; i++) {
-    if (channel.Recv(msg.get(), msg_len) != msg_len) {
-      std::cerr << "ERROR: read" << std::endl;
-      return;
-    }
+  auto local_mem = channel.RegisterMemory(msg.get(), msg_len, MR_REMOTE_WRITE);
+  channel.SynRemoteMemoryRegion(*local_mem);
 
-    if (channel.Send(msg.get(), msg_len) != msg_len) {
-      std::cerr << "ERROR: write" << std::endl;
+  for (int i = 0; i < 500; i++) {
+    if (channel.PollWrite(*local_mem) != msg_len) {
+      std::cerr << "ERROR: read" << std::endl;
       return;
     }
   }
@@ -31,9 +28,11 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  std::unique_ptr<Server> server(new SocketServer);
+  RNetLib::SetMode(RNetLib::Mode::SOCKET);
+
   // FIXME: handle errors
-  server->Listen(std::stoi(argv[1]));
+  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])));
+  server->Listen();
   auto channel = server->Accept();
 
   size_t max_bytes = (1 << 27);

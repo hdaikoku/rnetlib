@@ -2,25 +2,23 @@
 // Created by Harunobu Daikoku on 2016/08/01.
 //
 
+#include <chrono>
 #include <iostream>
-#include <rnetlib/socket/socket_client.h>
+#include <rnetlib/rnetlib.h>
 
 using namespace rnetlib;
-using namespace rnetlib::socket;
 
 void do_pingpong(const Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 
+  auto local_mem = channel.RegisterMemory(msg.get(), msg_len, MR_LOCAL_WRITE);
+  auto remote_mem = channel.AckRemoteMemoryRegion();
+
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < 500; i++) {
-    if (channel.Send(msg.get(), msg_len) != msg_len) {
+    if (channel.Write(*local_mem, *remote_mem) != msg_len) {
       std::cerr << "ERROR: write" << std::endl;
-      return;
-    }
-
-    if (channel.Recv(msg.get(), msg_len) != msg_len) {
-      std::cerr << "ERROR: read" << std::endl;
       return;
     }
   }
@@ -38,9 +36,11 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  std::unique_ptr<Client> client(new SocketClient);
+  RNetLib::SetMode(RNetLib::Mode::SOCKET);
+
   // FIXME: handle errors
-  auto channel = client->Connect(argv[1], std::stoi(argv[2]));
+  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
+  auto channel = client->Connect();
 
   size_t max_bytes = (1 << 27);
   std::cout << "Length[Bytes]" << "\t" << "Bandwidth[Gbit/s]" << std::endl;

@@ -3,10 +3,9 @@
 //
 
 #include <iostream>
-#include <rnetlib/socket/socket_client.h>
+#include <rnetlib/rnetlib.h>
 
 using namespace rnetlib;
-using namespace rnetlib::socket;
 
 int main(int argc, const char **argv) {
   if (argc != 3) {
@@ -14,9 +13,11 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  std::unique_ptr<Client> client(new SocketClient);
+  RNetLib::SetMode(RNetLib::Mode::SOCKET);
+
   // FIXME: handle errors
-  auto channel = client->Connect(argv[1], std::stoi(argv[2]));
+  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
+  auto channel = client->Connect();
 
   int msg = 10;
   channel->Send(&msg, sizeof(msg));
