@@ -18,7 +18,7 @@ class RDMAClient : public Client, public RDMACommon {
 
   virtual ~RDMAClient() {}
 
-  std::unique_ptr<Channel> Connect() override {
+  Channel::Ptr Connect() override {
     if (!Init(peer_addr_.c_str(), peer_port_, 0)) {
       return nullptr;
     }

@@ -5,12 +5,16 @@
 #ifndef RNETLIB_CHANNEL_H
 #define RNETLIB_CHANNEL_H
 
+#include <memory>
+
 #include "rnetlib/local_memory_region.h"
 #include "rnetlib/remote_memory_region.h"
 
 namespace rnetlib {
 class Channel {
  public:
+
+  using Ptr = std::unique_ptr<Channel>;
 
   virtual size_t Send(void *buf, size_t len) const = 0;
 

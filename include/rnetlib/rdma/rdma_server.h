@@ -33,7 +33,7 @@ class RDMAServer : public Server, public RDMACommon {
     return true;
   }
 
-  std::unique_ptr<Channel> Accept() override {
+  Channel::Ptr Accept() override {
     struct rdma_cm_id *new_id;
 
     if (rdma_get_request(id_.get(), &new_id)) {

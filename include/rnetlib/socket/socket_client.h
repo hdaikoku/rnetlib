@@ -36,7 +36,7 @@ class SocketClient : public Client, public SocketCommon {
 
   virtual ~SocketClient() {}
 
-  std::unique_ptr<Channel> Connect() override {
+  Channel::Ptr Connect() override {
     // TODO: timeout and backoff should be user-configurable
     auto timeout = std::chrono::minutes(3);
     int backoff_msecs = 1;

@@ -15,7 +15,7 @@ class Server {
 
   virtual bool Listen() = 0;
 
-  virtual std::unique_ptr<Channel> Accept() = 0;
+  virtual Channel::Ptr Accept() = 0;
 
 };
 }

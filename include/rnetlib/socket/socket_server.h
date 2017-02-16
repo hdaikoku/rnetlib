@@ -59,7 +59,7 @@ class SocketServer : public Server, public SocketCommon {
     return true;
   }
 
-  std::unique_ptr<Channel> Accept() override {
+  Channel::Ptr Accept() override {
     auto sock_fd = S_ACCEPT(sock_fd_, NULL, NULL);
     if (sock_fd < 0) {
       if (errno != EWOULDBLOCK) {

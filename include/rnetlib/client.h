@@ -13,7 +13,7 @@ namespace rnetlib {
 class Client {
  public:
 
-  virtual std::unique_ptr<Channel> Connect() = 0;
+  virtual Channel::Ptr Connect() = 0;
 
 };
 }
