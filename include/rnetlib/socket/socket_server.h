@@ -6,7 +6,9 @@
 #define RNETLIB_SOCKET_SOCKET_SERVER_H
 
 #include <cerrno>
+#include <poll.h>
 
+#include "rnetlib/event_handler.h"
 #include "rnetlib/server.h"
 #include "rnetlib/socket/socket_channel.h"
 
@@ -71,9 +73,54 @@ class SocketServer : public Server, public SocketCommon {
     return std::unique_ptr<Channel>(new SocketChannel(sock_fd));
   }
 
+  std::future<Channel::Ptr> Accept(EventLoop &loop) override {
+    // set socket to non-blocking mode
+    SetNonBlocking(true);
+
+    std::packaged_task<Channel::Ptr()> task([&]() {
+      return Accept();
+    });
+    auto f = task.get_future();
+
+    loop.AddHandler(std::unique_ptr<EventHandler>(new AcceptHandler(std::move(task), sock_fd_)));
+
+    return f;
+  }
+
  private:
   std::string bind_addr_;
   uint16_t bind_port_;
+
+  class AcceptHandler : public EventHandler {
+   public:
+    AcceptHandler(std::packaged_task<Channel::Ptr()> task, int sock_fd) : task_(std::move(task)), sock_fd_(sock_fd) {}
+
+    int OnEvent(int event_type) override {
+      if (event_type & POLLIN) {
+        task_();
+      }
+
+      return MAY_BE_REMOVED;
+    }
+
+    int OnError(int error_type) override {
+      // TODO: log error
+      return MAY_BE_REMOVED;
+    }
+
+    int GetHandlerID() const override {
+      return sock_fd_;
+    }
+
+    short GetEventType() const override {
+      return POLLIN;
+    }
+
+   private:
+    int sock_fd_;
+    std::packaged_task<Channel::Ptr()> task_;
+
+  };
 
 };
 }

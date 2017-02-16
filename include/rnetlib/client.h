@@ -5,15 +5,18 @@
 #ifndef RNETLIB_CLIENT_H
 #define RNETLIB_CLIENT_H
 
-#include <memory>
+#include <future>
 
 #include "rnetlib/channel.h"
+#include "rnetlib/event_loop.h"
 
 namespace rnetlib {
 class Client {
  public:
 
   virtual Channel::Ptr Connect() = 0;
+
+  virtual std::future<Channel::Ptr> Connect(EventLoop &loop) = 0;
 
 };
 }

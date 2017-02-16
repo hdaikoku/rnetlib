@@ -7,6 +7,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <poll.h>
 #include <thread>
 
 #include "rnetlib/client.h"
@@ -57,7 +58,7 @@ class SocketClient : public Client, public SocketCommon {
 
       auto ret = S_CONNECT(sock_fd_, S_DST_ADDR(addr_info), S_DST_ADDRLEN(addr_info));
       if (ret == -1) {
-        S_CLOSE(sock_fd_);
+        Close();
         if (errno == ECONNREFUSED) {
           // the server is not ready yet.
           std::this_thread::sleep_for(std::chrono::milliseconds(backoff_msecs));
@@ -75,9 +76,101 @@ class SocketClient : public Client, public SocketCommon {
     }
   }
 
+  std::future<Channel::Ptr> Connect(EventLoop &loop) override {
+    auto addr_info = Init(peer_addr_.c_str(), peer_port_, 0);
+    if (!addr_info) {
+      // TODO: log error
+      std::promise<Channel::Ptr> promise;
+      promise.set_value(nullptr);
+      return promise.get_future();
+    }
+
+    // set socket to non-blocking mode
+    SetNonBlocking(true);
+
+    if (S_CONNECT(sock_fd_, S_DST_ADDR(addr_info), S_DST_ADDRLEN(addr_info)) == 0) {
+      // this may happen when connection got established immediately.
+      std::promise<Channel::Ptr> promise;
+      promise.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+      return promise.get_future();
+    } else {
+      if (errno != EINPROGRESS) {
+        // unrecoverable error.
+        // TODO: log error
+        Close();
+        std::promise<Channel::Ptr> promise;
+        promise.set_value(nullptr);
+        return promise.get_future();
+      }
+    }
+
+    std::packaged_task<Channel::Ptr()> task([&]() {
+      // check if connection has been established
+      int val = 0;
+      GetSockOpt(SOL_SOCKET, SO_ERROR, val);
+
+      switch (val) {
+        case 0:
+          // no errors observed
+          break;
+        case ECONNREFUSED:
+          // the peer is not ready yet.
+          // close socket, throw an exception and let the user try again.
+          Close();
+          throw ECONNREFUSED;
+        default:
+          // unrecoverable error.
+          Close();
+          return std::unique_ptr<Channel>(nullptr);
+      }
+      // connection has been established.
+      return std::unique_ptr<Channel>(new SocketChannel(sock_fd_));
+    });
+    auto f = task.get_future();
+
+    loop.AddHandler(std::unique_ptr<EventHandler>(new ConnectHandler(std::move(task), sock_fd_)));
+
+    return f;
+  }
+
  private:
   std::string peer_addr_;
   uint16_t peer_port_;
+
+  class ConnectHandler : public EventHandler {
+   public:
+
+    ConnectHandler(std::packaged_task<Channel::Ptr()> task, int sock_fd) : task_(std::move(task)), sock_fd_(sock_fd) {}
+
+    int OnEvent(int event_type) override {
+      if (event_type & POLLOUT) {
+        task_();
+      }
+
+      return MAY_BE_REMOVED;
+    }
+
+    int OnError(int error_type) override {
+      if (error_type & (POLLHUP | POLLERR)) {
+        task_();
+      }
+
+      return MAY_BE_REMOVED;
+    }
+
+    int GetHandlerID() const override {
+      return sock_fd_;
+    }
+
+    short GetEventType() const override {
+      return POLLOUT;
+    }
+
+   private:
+    int sock_fd_;
+    std::packaged_task<Channel::Ptr()> task_;
+
+  };
 
 };
 }

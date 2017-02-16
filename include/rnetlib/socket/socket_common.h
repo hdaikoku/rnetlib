@@ -65,13 +65,13 @@ class SocketCommon {
 
   SocketCommon(int sock_fd) : sock_fd_(sock_fd) {}
 
-  virtual ~SocketCommon() {
+ protected:
+  int sock_fd_;
+
+  void Close() {
     S_SHUTDOWN(sock_fd_, SHUT_RDWR);
     S_CLOSE(sock_fd_);
   }
-
- protected:
-  int sock_fd_;
 
   std::unique_ptr<struct S_ADDRINFO, AddrInfoDeleter> Init(const char *addr, uint16_t port, int flags) {
     struct S_ADDRINFO hints;
@@ -109,15 +109,18 @@ class SocketCommon {
     // TODO: TCP_NODELAY should be user-configurable
     int no_delay = 1;
     if (!SetSockOpt(IPPROTO_TCP, TCP_NODELAY, no_delay)) {
+      Close();
       return nullptr;
     }
 
     // TODO: buf_size should be user-configurable (buf_size = RTT * BW)
     int buf_size = (1 << 21);
     if (!SetSockOpt(SOL_SOCKET, SO_SNDBUF, buf_size)) {
+      Close();
       return nullptr;
     }
     if (!SetSockOpt(SOL_SOCKET, SO_RCVBUF, buf_size)) {
+      Close();
       return nullptr;
     }
 
@@ -125,6 +128,7 @@ class SocketCommon {
     // TODO: RDMA_INLINE should be user-configurable
     int val = 0;
     if (!SetSockOpt(SOL_RDMA, RDMA_INLINE, val)) {
+      Close();
       return nullptr;
     }
 #endif //USE_RDMA
@@ -139,6 +143,16 @@ class SocketCommon {
   bool GetSockOpt(int level, int option_name, int &val) {
     socklen_t len;
     return (S_GETSOCKOPT(sock_fd_, level, option_name, &val, &len) == 0);
+  }
+
+  bool SetNonBlocking(bool non_blocking) {
+    if (non_blocking) {
+      S_FCNTL(sock_fd_, F_SETFL, S_FCNTL(sock_fd_, F_GETFL, 0) | O_NONBLOCK);
+    } else {
+      S_FCNTL(sock_fd_, F_SETFL, S_FCNTL(sock_fd_, F_GETFL, 0) & ~O_NONBLOCK);
+    }
+
+    return true;
   }
 
 };

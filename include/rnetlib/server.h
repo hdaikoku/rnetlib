@@ -5,9 +5,10 @@
 #ifndef RNETLIB_SERVER_H
 #define RNETLIB_SERVER_H
 
-#include <memory>
+#include <future>
 
 #include "rnetlib/channel.h"
+#include "rnetlib/event_loop.h"
 
 namespace rnetlib {
 class Server {
@@ -16,6 +17,8 @@ class Server {
   virtual bool Listen() = 0;
 
   virtual Channel::Ptr Accept() = 0;
+
+  virtual std::future<Channel::Ptr> Accept(EventLoop &loop) = 0;
 
 };
 }

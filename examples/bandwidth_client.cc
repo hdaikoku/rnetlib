@@ -38,8 +38,14 @@ int main(int argc, const char **argv) {
   RNetLib::SetMode(RNetLib::Mode::SOCKET);
 
   // FIXME: handle errors
+  auto loop = RNetLib::NewEventLoop();
   auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
-  auto channel = client->Connect();
+  auto future_channel = client->Connect(*loop);
+
+  loop->Run(30 * 1000);
+
+  auto channel = future_channel.get();
+  channel->SetNonBlocking(false);
 
   size_t max_bytes = (1 << 27);
   std::cout << "Length[Bytes]" << "\t" << "Bandwidth[Gbit/s]" << std::endl;
