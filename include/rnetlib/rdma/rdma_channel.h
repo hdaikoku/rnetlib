@@ -21,6 +21,10 @@ class RDMAChannel : public Channel, public RDMACommon {
 
   RDMAChannel(struct rdma_cm_id *id) : RDMACommon(id) {}
 
+  bool SetNonBlocking(bool non_blocking) override {
+    return true;
+  }
+
   size_t Send(void *buf, size_t len) const override {
     auto mem = RegisterMemory(buf, len, MR_LOCAL_WRITE);
     if (!mem) {

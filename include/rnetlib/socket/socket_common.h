@@ -6,6 +6,7 @@
 #define RNETLIB_SOCKET_SOCKET_COMMON_H
 
 #include <cstring>
+#include <fcntl.h>
 #include <memory>
 #include <netdb.h>
 #include <string>

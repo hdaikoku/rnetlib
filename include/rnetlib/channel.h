@@ -16,6 +16,8 @@ class Channel {
 
   using Ptr = std::unique_ptr<Channel>;
 
+  virtual bool SetNonBlocking(bool non_blocking) = 0;
+
   virtual size_t Send(void *buf, size_t len) const = 0;
 
   virtual size_t Recv(void *buf, size_t len) const = 0;

@@ -24,6 +24,16 @@ class SocketChannel : public Channel, public SocketCommon {
 
   SocketChannel(int sock_fd) : SocketCommon(sock_fd) {}
 
+  bool SetNonBlocking(bool non_blocking) override {
+    if (non_blocking) {
+      S_FCNTL(sock_fd_, F_SETFL, S_FCNTL(sock_fd_, F_GETFL, 0) | O_NONBLOCK);
+    } else {
+      S_FCNTL(sock_fd_, F_SETFL, S_FCNTL(sock_fd_, F_GETFL, 0) & ~O_NONBLOCK);
+    }
+
+    return true;
+  }
+
   size_t Send(void *buf, size_t len) const override {
     size_t offset = 0;
 
