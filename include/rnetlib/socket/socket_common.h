@@ -73,7 +73,7 @@ class SocketCommon {
     S_CLOSE(sock_fd_);
   }
 
-  std::unique_ptr<struct S_ADDRINFO, AddrInfoDeleter> Init(const char *addr, uint16_t port, int flags) {
+  std::unique_ptr<struct S_ADDRINFO, AddrInfoDeleter> Open(const char *addr, uint16_t port, int flags) {
     struct S_ADDRINFO hints;
     std::unique_ptr<struct S_ADDRINFO, AddrInfoDeleter> results;
 

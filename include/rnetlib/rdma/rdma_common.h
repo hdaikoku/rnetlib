@@ -41,7 +41,7 @@ class RDMACommon {
     max_inline_data_ = attr.cap.max_inline_data;
   }
 
-  bool Init(const char *addr, uint16_t port, int flags) {
+  bool Open(const char *addr, uint16_t port, int flags) {
     struct rdma_addrinfo hints, *tmp_addrinfo;
 
     std::memset(&hints, 0, sizeof(hints));

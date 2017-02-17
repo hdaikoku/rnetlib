@@ -50,7 +50,7 @@ class SocketClient : public Client, public SocketCommon {
         return nullptr;
       }
 
-      auto addr_info = Init(peer_addr_.c_str(), peer_port_, 0);
+      auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
       if (!addr_info) {
         // TODO: log error
         return nullptr;
@@ -77,7 +77,7 @@ class SocketClient : public Client, public SocketCommon {
   }
 
   std::future<Channel::Ptr> Connect(EventLoop &loop) override {
-    auto addr_info = Init(peer_addr_.c_str(), peer_port_, 0);
+    auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
     if (!addr_info) {
       // TODO: log error
       std::promise<Channel::Ptr> promise;

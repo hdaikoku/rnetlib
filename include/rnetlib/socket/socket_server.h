@@ -39,7 +39,7 @@ class SocketServer : public Server, public SocketCommon {
       : bind_addr_(bind_addr), bind_port_(bind_port) {}
 
   bool Listen() override {
-    auto result = Init(bind_addr_.c_str(), bind_port_, S_PASSIVE);
+    auto result = Open(bind_addr_.c_str(), bind_port_, S_PASSIVE);
     if (!result) {
       return false;
     }

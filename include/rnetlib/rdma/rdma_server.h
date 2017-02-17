@@ -19,7 +19,7 @@ class RDMAServer : public Server, public RDMACommon {
       : bind_addr_(bind_addr), bind_port_(bind_port) {}
 
   bool Listen() override {
-    if (!Init(bind_addr_.c_str(), bind_port_, RAI_PASSIVE)) {
+    if (!Open(bind_addr_.c_str(), bind_port_, RAI_PASSIVE)) {
       // error
       return false;
     }
