@@ -29,15 +29,11 @@ class SocketEventLoop : public EventLoop {
   }
 
   int Run(int timeout) override {
-    while (true) {
-      if (handlers_.size() == 0) {
-        // no handlers
-        break;
-      }
-
+    while (handlers_.size() > 0) {
       std::vector<struct pollfd> fds;
       for (const auto &handler : handlers_) {
-        fds.emplace_back(pollfd{handler->GetHandlerID(), handler->GetEventType(), 0});
+        int sock_fd = *(reinterpret_cast<const int *>(handler->GetHandlerID()));
+        fds.emplace_back(pollfd{sock_fd, handler->GetEventType(), 0});
       }
       nfds_t num_fds = static_cast<nfds_t>(fds.size());
 
@@ -66,7 +62,7 @@ class SocketEventLoop : public EventLoop {
           if (handler->OnError(revents) == MAY_BE_REMOVED) {
             handler.reset();
             cleanup = true;
-          };
+          }
         } else {
           if (handler->OnEvent(revents) == MAY_BE_REMOVED) {
             handler.reset();

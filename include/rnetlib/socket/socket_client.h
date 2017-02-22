@@ -158,8 +158,8 @@ class SocketClient : public Client, public SocketCommon {
       return MAY_BE_REMOVED;
     }
 
-    int GetHandlerID() const override {
-      return sock_fd_;
+    const void *GetHandlerID() const override {
+      return &sock_fd_;
     }
 
     short GetEventType() const override {
