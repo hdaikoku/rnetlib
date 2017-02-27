@@ -5,6 +5,7 @@
 #ifndef RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H
 #define RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H
 
+#include <algorithm>
 #include <poll.h>
 #include <vector>
 
@@ -32,7 +33,7 @@ class SocketEventLoop : public EventLoop {
     while (handlers_.size() > 0) {
       std::vector<struct pollfd> fds;
       for (const auto &handler : handlers_) {
-        int sock_fd = *(reinterpret_cast<const int *>(handler->GetHandlerID()));
+        int sock_fd = *(reinterpret_cast<int *>(handler->GetHandlerID()));
         fds.emplace_back(pollfd{sock_fd, handler->GetEventType(), 0});
       }
       nfds_t num_fds = static_cast<nfds_t>(fds.size());

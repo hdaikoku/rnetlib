@@ -15,7 +15,7 @@ class EventHandler {
 
   virtual int OnError(int error_type) = 0;
 
-  virtual const void *GetHandlerID() const = 0;
+  virtual void *GetHandlerID() const = 0;
 
   virtual short GetEventType() const = 0;
 
