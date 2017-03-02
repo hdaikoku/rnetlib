@@ -11,7 +11,7 @@ namespace rnetlib {
 class EventHandler {
  public:
 
-  virtual int OnEvent(int event_type) = 0;
+  virtual int OnEvent(int event_type, void *arg) = 0;
 
   virtual int OnError(int error_type) = 0;
 

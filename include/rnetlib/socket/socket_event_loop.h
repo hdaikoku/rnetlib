@@ -70,7 +70,7 @@ class SocketEventLoop : public EventLoop {
           }
         } else {
           // got an event
-          if (handler.OnEvent(revents) == MAY_BE_REMOVED) {
+          if (handler.OnEvent(revents, nullptr) == MAY_BE_REMOVED) {
             handler_refs_.erase(sock_fd);
           }
         }

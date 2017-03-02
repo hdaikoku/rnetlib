@@ -91,7 +91,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
     return promise_.get_future();
   }
 
-  int OnEvent(int event_type) override {
+  int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
       OnConnect();
     }
