@@ -62,38 +62,23 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   }
 
   std::future<Channel::Ptr> Connect(EventLoop &loop) override {
-    auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
-    if (!addr_info) {
-      // TODO: log error
-      promise_.set_value(nullptr);
-      return promise_.get_future();
-    }
-
-    // set socket to non-blocking mode
-    SetNonBlocking(true);
-
-    if (S_CONNECT(sock_fd_, S_DST_ADDR(addr_info), S_DST_ADDRLEN(addr_info)) == 0) {
-      // this may happen when connection got established immediately.
-      promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
-      return promise_.get_future();
-    } else {
-      if (errno != EINPROGRESS) {
-        // unrecoverable error.
-        // TODO: log error
-        Close();
+    auto ret = NonBlockingConnect();
+    switch (ret) {
+      case kConnSuccess:loop.AddHandler(*this);
+        break;
+      case kConnEstablished:promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+        break;
+      default:
         promise_.set_value(nullptr);
-        return promise_.get_future();
-      }
+        break;
     }
-
-    loop.AddHandler(*this);
 
     return promise_.get_future();
   }
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
-      OnConnect();
+      return OnConnect();
     }
 
     return MAY_BE_REMOVED;
@@ -101,7 +86,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
 
   int OnError(int error_type) override {
     if (error_type & (POLLHUP | POLLERR)) {
-      OnConnect();
+      return OnConnect();
     }
 
     return MAY_BE_REMOVED;
@@ -119,30 +104,65 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   std::string peer_addr_;
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;
+  static const int kConnFailed = -1;
+  static const int kConnSuccess = 0;
+  static const int kConnEstablished = 1;
 
-  void OnConnect() {
+  int NonBlockingConnect() {
+    auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
+    if (!addr_info) {
+      // TODO: log error
+      return kConnFailed;
+    }
+
+    // set socket to non-blocking mode
+    SetNonBlocking(true);
+
+    if (S_CONNECT(sock_fd_, S_DST_ADDR(addr_info), S_DST_ADDRLEN(addr_info)) == 0) {
+      // this may happen when connection got established immediately.
+      return kConnEstablished;
+    } else {
+      if (errno == EINPROGRESS) {
+        // connection is expected to be established later.
+        return kConnSuccess;
+      } else {
+        // unrecoverable error.
+        // TODO: log error
+        Close();
+        return kConnFailed;
+      }
+    }
+  }
+
+  int OnConnect() {
     // check if connection has been established
     int val = 0;
     GetSockOpt(SOL_SOCKET, SO_ERROR, val);
 
-    switch (val) {
-      case 0:
-        // connection has been established.
-        promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
-        break;
-      case ECONNREFUSED:
-        // the peer is not ready yet.
-        // close socket, throw an exception and let the user try again.
-        Close();
-        // FIXME: throw exception
-        // promise_.set_exception();
-        break;
-      default:
-        // unrecoverable error.
-        Close();
-        promise_.set_value(nullptr);
-        break;
+    if (val == 0) {
+      // connection has been established.
+      promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+    } else if (val == ECONNREFUSED) {
+      // the peer is not ready yet.
+      // close socket, open it and try to connect again.
+      // FIXME: this logic for detecting ECONNREFUSED does NOT work on macOS
+      Close();
+      auto ret = NonBlockingConnect();
+      switch (ret) {
+        case kConnSuccess:return 0;
+        case kConnEstablished:promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+          return MAY_BE_REMOVED;
+        default:promise_.set_value(nullptr);
+          return MAY_BE_REMOVED;
+      }
+    } else {
+      // unrecoverable error.
+      std::cout << "ERROR: " << val << std::endl;
+      Close();
+      promise_.set_value(nullptr);
     }
+
+    return MAY_BE_REMOVED;
   }
 
 };
