@@ -32,7 +32,7 @@
 
 namespace rnetlib {
 namespace socket {
-class SocketServer : public Server, public SocketCommon {
+class SocketServer : public Server, public SocketCommon, public EventHandler {
  public:
 
   SocketServer(const std::string &bind_addr, uint16_t bind_port)
@@ -77,50 +77,37 @@ class SocketServer : public Server, public SocketCommon {
     // set socket to non-blocking mode
     SetNonBlocking(true);
 
-    std::packaged_task<Channel::Ptr()> task([&]() {
-      return Accept();
-    });
-    auto f = task.get_future();
+    loop.AddHandler(*this);
 
-    loop.AddHandler(std::unique_ptr<EventHandler>(new AcceptHandler(std::move(task), sock_fd_)));
+    return promise_.get_future();
+  }
 
-    return f;
+  int OnEvent(int event_type) override {
+    if (event_type & POLLIN) {
+      promise_.set_value(Accept());
+    }
+
+    return MAY_BE_REMOVED;
+  }
+
+  int OnError(int error_type) override {
+    // TODO: log error
+    promise_.set_value(nullptr);
+    return MAY_BE_REMOVED;
+  }
+
+  void *GetHandlerID() const override {
+    return const_cast<int *>(&sock_fd_);
+  }
+
+  short GetEventType() const override {
+    return POLLIN;
   }
 
  private:
   std::string bind_addr_;
   uint16_t bind_port_;
-
-  class AcceptHandler : public EventHandler {
-   public:
-    AcceptHandler(std::packaged_task<Channel::Ptr()> task, int sock_fd) : task_(std::move(task)), sock_fd_(sock_fd) {}
-
-    int OnEvent(int event_type) override {
-      if (event_type & POLLIN) {
-        task_();
-      }
-
-      return MAY_BE_REMOVED;
-    }
-
-    int OnError(int error_type) override {
-      // TODO: log error
-      return MAY_BE_REMOVED;
-    }
-
-    void *GetHandlerID() const override {
-      return const_cast<int *>(&sock_fd_);
-    }
-
-    short GetEventType() const override {
-      return POLLIN;
-    }
-
-   private:
-    int sock_fd_;
-    std::packaged_task<Channel::Ptr()> task_;
-
-  };
+  std::promise<Channel::Ptr> promise_;
 
 };
 }

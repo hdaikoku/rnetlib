@@ -6,7 +6,9 @@
 #define RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H
 
 #include <algorithm>
+#include <functional>
 #include <poll.h>
+#include <unordered_map>
 #include <vector>
 
 #include "rnetlib/event_loop.h"
@@ -25,61 +27,55 @@ namespace socket {
 class SocketEventLoop : public EventLoop {
  public:
 
-  void AddHandler(std::unique_ptr<EventHandler> handler) override {
-    handlers_.push_back(std::move(handler));
+  void AddHandler(EventHandler &handler) override {
+    auto sock_fd = *(reinterpret_cast<int *>(handler.GetHandlerID()));
+    handler_refs_.emplace(std::make_pair(sock_fd, std::ref(handler)));
   }
 
   int Run(int timeout) override {
-    while (handlers_.size() > 0) {
-      std::vector<struct pollfd> fds;
-      for (const auto &handler : handlers_) {
-        int sock_fd = *(reinterpret_cast<int *>(handler->GetHandlerID()));
-        fds.emplace_back(pollfd{sock_fd, handler->GetEventType(), 0});
+    std::vector<struct pollfd> fds;
+
+    while (!handler_refs_.empty()) {
+      fds.clear();
+
+      for (const auto &handler_ref : handler_refs_) {
+        fds.emplace_back(pollfd{handler_ref.first, handler_ref.second.get().GetEventType(), 0});
       }
       nfds_t num_fds = static_cast<nfds_t>(fds.size());
 
-      bool cleanup = false;
       auto rc = S_POLL(fds.data(), num_fds, timeout);
       if (rc < 0) {
+        // miscellaneous errors
         // TODO: log error
         return kErrFailed;
       } else if (rc == 0) {
+        // timed out
         // TODO: log error
         return kErrTimedOut;
       }
 
       for (int i = 0; i < num_fds; i++) {
         auto &pfd = fds[i];
+        auto sock_fd = pfd.fd;
         auto &revents = pfd.revents;
-        auto &handler = handlers_[i];
+        auto &handler = handler_refs_.at(sock_fd).get();
 
         if (revents == 0) {
           // this file descriptor is not ready yet
           continue;
-        }
-
-        if (revents & (POLLHUP | POLLERR | POLLNVAL)) {
+        } else if (revents & (POLLHUP | POLLERR | POLLNVAL)) {
           // connection has been closed
-          if (handler->OnError(revents) == MAY_BE_REMOVED) {
-            handler.reset();
-            cleanup = true;
+          if (handler.OnError(revents) == MAY_BE_REMOVED) {
+            handler_refs_.erase(sock_fd);
           }
         } else {
-          if (handler->OnEvent(revents) == MAY_BE_REMOVED) {
-            handler.reset();
-            cleanup = true;
+          // got an event
+          if (handler.OnEvent(revents) == MAY_BE_REMOVED) {
+            handler_refs_.erase(sock_fd);
           }
         }
 
         revents = 0;
-      }
-
-      if (cleanup) {
-        handlers_.erase(std::remove_if(handlers_.begin(), handlers_.end(),
-                                       [](const std::unique_ptr<EventHandler> &handler) {
-                                         return !handler;
-                                       }),
-                        handlers_.end());
       }
     }
 
@@ -87,7 +83,7 @@ class SocketEventLoop : public EventLoop {
   }
 
  private:
-  std::vector<std::unique_ptr<EventHandler>> handlers_;
+  std::unordered_map<int, std::reference_wrapper<EventHandler>> handler_refs_;
 
 };
 }
