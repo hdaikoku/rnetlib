@@ -10,7 +10,7 @@
 
 namespace rnetlib {
 namespace rdma {
-class RDMAClient : public Client, public RDMACommon {
+class RDMAClient : public Client, public RDMACommon, public EventHandler {
  public:
 
   RDMAClient(const std::string &peer_addr, uint16_t peer_port)
@@ -30,9 +30,52 @@ class RDMAClient : public Client, public RDMACommon {
     return std::unique_ptr<Channel>(new RDMAChannel(id_.release()));
   }
 
+  std::future<Channel::Ptr> Connect(EventLoop &loop) override {
+    std::promise<Channel::Ptr> promise;
+    auto f = promise.get_future();
+
+    if (!Open(peer_addr_.c_str(), peer_port_, 0)) {
+      promise.set_value(nullptr);
+      return f;
+    }
+
+    // migrate rdma_cm_id to the event loop
+    loop.AddHandler(*this);
+
+    if (rdma_connect(id_.get(), nullptr)) {
+      // TODO: handle error
+      return f;
+    }
+
+    return f;
+  }
+
+  int OnEvent(int event_type, void *arg) override {
+    if (event_type & RDMA_CM_EVENT_ESTABLISHED) {
+      promise_.set_value(std::unique_ptr<Channel>(new RDMAChannel(id_.release())));
+    }
+
+    return MAY_BE_REMOVED;
+  }
+
+  int OnError(int error_type) override {
+    // TODO: throw error
+    // promise_.set_exception(ECONNREFUSED);
+    return MAY_BE_REMOVED;
+  }
+
+  void *GetHandlerID() const override {
+    return id_.get();
+  }
+
+  short GetEventType() const override {
+    return 0;
+  }
+
  private:
   std::string peer_addr_;
   uint16_t peer_port_;
+  std::promise<Channel::Ptr> promise_;
 
 };
 }

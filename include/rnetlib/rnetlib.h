@@ -14,6 +14,7 @@
 
 #ifdef USE_RDMA
 #include "rnetlib/rdma/rdma_client.h"
+#include "rnetlib/rdma/rdma_event_loop.h"
 #include "rnetlib/rdma/rdma_server.h"
 #endif //USE_RDMA
 
