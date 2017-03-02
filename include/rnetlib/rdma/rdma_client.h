@@ -31,12 +31,9 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
   }
 
   std::future<Channel::Ptr> Connect(EventLoop &loop) override {
-    std::promise<Channel::Ptr> promise;
-    auto f = promise.get_future();
-
     if (!Open(peer_addr_.c_str(), peer_port_, 0)) {
-      promise.set_value(nullptr);
-      return f;
+      promise_.set_value(nullptr);
+      return promise_.get_future();
     }
 
     // migrate rdma_cm_id to the event loop
@@ -44,14 +41,15 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
 
     if (rdma_connect(id_.get(), nullptr)) {
       // TODO: handle error
-      return f;
+      promise_.set_value(nullptr);
+      return promise_.get_future();
     }
 
-    return f;
+    return promise_.get_future();
   }
 
   int OnEvent(int event_type, void *arg) override {
-    if (event_type & RDMA_CM_EVENT_ESTABLISHED) {
+    if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
       promise_.set_value(std::unique_ptr<Channel>(new RDMAChannel(id_.release())));
     }
 
