@@ -149,15 +149,17 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
       Close();
       auto ret = NonBlockingConnect();
       switch (ret) {
-        case kConnSuccess:return 0;
-        case kConnEstablished:promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+        case kConnSuccess:
+          return 0;
+        case kConnEstablished:
+          promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
           return MAY_BE_REMOVED;
-        default:promise_.set_value(nullptr);
+        default:
+          promise_.set_value(nullptr);
           return MAY_BE_REMOVED;
       }
     } else {
       // unrecoverable error.
-      std::cout << "ERROR: " << val << std::endl;
       Close();
       promise_.set_value(nullptr);
     }
