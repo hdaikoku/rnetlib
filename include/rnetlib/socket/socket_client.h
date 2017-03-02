@@ -64,9 +64,11 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   std::future<Channel::Ptr> Connect(EventLoop &loop) override {
     auto ret = NonBlockingConnect();
     switch (ret) {
-      case kConnSuccess:loop.AddHandler(*this);
+      case kConnSuccess:
+        loop.AddHandler(*this);
         break;
-      case kConnEstablished:promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+      case kConnEstablished:
+        promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
         break;
       default:
         promise_.set_value(nullptr);
@@ -145,7 +147,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
     } else if (val == ECONNREFUSED) {
       // the peer is not ready yet.
       // close socket, open it and try to connect again.
-      // FIXME: this logic for detecting ECONNREFUSED does NOT work on macOS
+      // FIXME: this logic for detecting ECONNREFUSED does NOT work on macOS.
       Close();
       auto ret = NonBlockingConnect();
       switch (ret) {
