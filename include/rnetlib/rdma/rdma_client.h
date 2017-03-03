@@ -30,7 +30,9 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
     return std::unique_ptr<Channel>(new RDMAChannel(id_.release()));
   }
 
-  std::future<Channel::Ptr> Connect(EventLoop &loop) override {
+  std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(const Channel &)> on_established) override {
+    on_established_ = std::move(on_established);
+
     if (!Open(peer_addr_.c_str(), peer_port_, 0)) {
       promise_.set_value(nullptr);
       return promise_.get_future();
@@ -50,7 +52,11 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
-      promise_.set_value(std::unique_ptr<Channel>(new RDMAChannel(id_.release())));
+      std::unique_ptr<Channel> channel(new RDMAChannel(id_.release()));
+      if (on_established_) {
+        on_established_(*channel);
+      }
+      promise_.set_value(std::move(channel));
     }
 
     return MAY_BE_REMOVED;
@@ -74,6 +80,7 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
   std::string peer_addr_;
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;
+  std::function<void(const Channel &)> on_established_;
 
 };
 }

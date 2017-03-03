@@ -5,6 +5,7 @@
 #ifndef RNETLIB_SERVER_H
 #define RNETLIB_SERVER_H
 
+#include <functional>
 #include <future>
 
 #include "rnetlib/channel.h"
@@ -18,7 +19,8 @@ class Server {
 
   virtual Channel::Ptr Accept() = 0;
 
-  virtual std::future<Channel::Ptr> Accept(EventLoop &loop) = 0;
+  virtual std::future<Channel::Ptr> Accept(EventLoop &loop,
+                                           std::function<void(const rnetlib::Channel &)> on_established = nullptr) = 0;
 
 };
 }

@@ -45,7 +45,9 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
     return std::unique_ptr<Channel>(new RDMAChannel(new_id));
   }
 
-  std::future<Channel::Ptr> Accept(EventLoop &loop) override {
+  std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(const Channel &)> on_established) override {
+    on_established_ = std::move(on_established);
+
     // migrate rdma_cm_id to event
     loop.AddHandler(*this);
 
@@ -85,7 +87,11 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
       }
     } else if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
       // connection established.
-      promise_.set_value(std::unique_ptr<Channel>(new RDMAChannel(accepting_id_.release())));
+      std::unique_ptr<Channel> channel(new RDMAChannel(accepting_id_.release()));
+      if (on_established_) {
+        on_established_(*channel);
+      }
+      promise_.set_value(std::move(channel));
     }
 
     return MAY_BE_REMOVED;
@@ -112,6 +118,7 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;
+  std::function<void(const Channel &)> on_established_;
   std::unique_ptr<struct rdma_cm_id, RDMACMIDDeleter> accepting_id_;
 
 };

@@ -61,14 +61,16 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
     return std::unique_ptr<Channel>(new SocketChannel(sock_fd_));
   }
 
-  std::future<Channel::Ptr> Connect(EventLoop &loop) override {
+  std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(const Channel &)> on_established) override {
+    on_established_ = std::move(on_established);
+
     auto ret = NonBlockingConnect();
     switch (ret) {
       case kConnSuccess:
         loop.AddHandler(*this);
         break;
       case kConnEstablished:
-        promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+        OnEstablished();
         break;
       default:
         promise_.set_value(nullptr);
@@ -103,12 +105,21 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   }
 
  private:
-  std::string peer_addr_;
-  uint16_t peer_port_;
-  std::promise<Channel::Ptr> promise_;
   static const int kConnFailed = -1;
   static const int kConnSuccess = 0;
   static const int kConnEstablished = 1;
+  std::string peer_addr_;
+  uint16_t peer_port_;
+  std::promise<Channel::Ptr> promise_;
+  std::function<void(const Channel &)> on_established_;
+
+  void OnEstablished() {
+    std::unique_ptr<Channel> channel(new SocketChannel(sock_fd_));
+    if (on_established_) {
+      on_established_(*channel);
+    }
+    promise_.set_value(std::move(channel));
+  }
 
   int NonBlockingConnect() {
     auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
@@ -143,7 +154,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
 
     if (val == 0) {
       // connection has been established.
-      promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
+      OnEstablished();
     } else if (val == ECONNREFUSED) {
       // the peer is not ready yet.
       // close socket, open it and try to connect again.
@@ -154,11 +165,11 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
         case kConnSuccess:
           return 0;
         case kConnEstablished:
-          promise_.set_value(std::unique_ptr<Channel>(new SocketChannel(sock_fd_)));
-          return MAY_BE_REMOVED;
+          OnEstablished();
+          break;
         default:
           promise_.set_value(nullptr);
-          return MAY_BE_REMOVED;
+          break;
       }
     } else {
       // unrecoverable error.
