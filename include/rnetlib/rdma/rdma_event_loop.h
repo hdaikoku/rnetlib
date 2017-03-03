@@ -53,6 +53,7 @@ class RDMAEventLoop : public EventLoop {
                                       });
       if (handler_itr == handlers_.end()) {
         // got an event on an unknown handler
+        rdma_ack_cm_event(ev);
         return kErrFailed;
       }
       auto &handler = (*handler_itr).get();
@@ -78,7 +79,8 @@ class RDMAEventLoop : public EventLoop {
             handlers_.erase(handler_itr);
           }
           break;
-        default:break;
+        default:
+          break;
       }
 
       rdma_ack_cm_event(ev);
