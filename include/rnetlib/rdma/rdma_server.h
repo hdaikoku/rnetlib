@@ -58,17 +58,34 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type == RDMA_CM_EVENT_CONNECT_REQUEST) {
-      auto new_id = reinterpret_cast<struct rdma_cm_id *>(arg);
       // got a connect request.
       // issue accept and wait for establishment.
-      if (rdma_accept(new_id, nullptr)) {
-        rdma_destroy_id(new_id);
+      accepting_id_.reset(reinterpret_cast<struct rdma_cm_id *>(arg));
+
+      struct ibv_qp_init_attr init_attr;
+      std::memset(&init_attr, 0, sizeof(init_attr));
+      init_attr.qp_type = IBV_QPT_RC;
+      init_attr.cap.max_send_sge = init_attr.cap.max_recv_sge = 1;
+      init_attr.cap.max_send_wr = init_attr.cap.max_recv_wr = 1;
+      init_attr.sq_sig_all = 1;
+      // TODO: max_inline_data should be user-configurable
+      init_attr.cap.max_inline_data = 16;
+
+      if (rdma_create_qp(accepting_id_.get(), accepting_id_->pd, &init_attr)) {
+        promise_.set_value(nullptr);
+        return MAY_BE_REMOVED;
+      }
+
+      if (rdma_accept(accepting_id_.get(), nullptr)) {
+        // TODO: log error
         promise_.set_value(nullptr);
       } else {
-        promise_.set_value(std::unique_ptr<Channel>(new RDMAChannel(new_id)));
+        // successfully issued accept
+        return 0;
       }
     } else if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
-      // FIXME: might be better to wait for RDMA_CM_EVENT_ESTABLISHED event
+      // connection established.
+      promise_.set_value(std::unique_ptr<Channel>(new RDMAChannel(accepting_id_.release())));
     }
 
     return MAY_BE_REMOVED;
@@ -80,6 +97,10 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
   }
 
   void *GetHandlerID() const override {
+    if (accepting_id_) {
+      return accepting_id_.get();
+    }
+
     return id_.get();
   }
 
@@ -91,6 +112,7 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;
+  std::unique_ptr<struct rdma_cm_id, RDMACMIDDeleter> accepting_id_;
 
 };
 }

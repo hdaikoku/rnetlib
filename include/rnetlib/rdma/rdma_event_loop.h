@@ -65,6 +65,7 @@ class RDMAEventLoop : public EventLoop {
           if (handler.OnEvent(ev->event, ev->id) == MAY_BE_REMOVED) {
             handlers_.erase(handler_itr);
           }
+          break;
         case RDMA_CM_EVENT_ESTABLISHED:
           // connection got established successfully.
           if (handler.OnEvent(ev->event, nullptr) == MAY_BE_REMOVED) {
