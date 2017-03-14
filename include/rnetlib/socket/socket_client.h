@@ -61,7 +61,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
     return std::unique_ptr<Channel>(new SocketChannel(sock_fd_));
   }
 
-  std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(const Channel &)> on_established) override {
+  std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
     auto ret = NonBlockingConnect();
@@ -111,7 +111,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   std::string peer_addr_;
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;
-  std::function<void(const Channel &)> on_established_;
+  std::function<void(Channel &)> on_established_;
 
   void OnEstablished() {
     std::unique_ptr<Channel> channel(new SocketChannel(sock_fd_));

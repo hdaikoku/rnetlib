@@ -73,7 +73,7 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
     return std::unique_ptr<Channel>(new SocketChannel(sock_fd));
   }
 
-  std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(const rnetlib::Channel &)> on_established) override {
+  std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(rnetlib::Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
     // set socket to non-blocking mode
@@ -114,7 +114,7 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;
-  std::function<void(const rnetlib::Channel &)> on_established_;
+  std::function<void(rnetlib::Channel &)> on_established_;
 
 };
 }

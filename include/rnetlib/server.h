@@ -20,7 +20,7 @@ class Server {
   virtual Channel::Ptr Accept() = 0;
 
   virtual std::future<Channel::Ptr> Accept(EventLoop &loop,
-                                           std::function<void(const rnetlib::Channel &)> on_established = nullptr) = 0;
+                                           std::function<void(rnetlib::Channel &)> on_established = nullptr) = 0;
 
 };
 }
