@@ -35,11 +35,11 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  RNetLib::SetMode(RNetLib::Mode::SOCKET);
+  auto rnetlib = RNetLib::Instance(RNetLib::Mode::SOCKET);
 
   // FIXME: handle errors
-  auto loop = RNetLib::NewEventLoop();
-  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
+  auto loop = rnetlib.NewEventLoop();
+  auto client = rnetlib.NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
   auto future_channel = client->Connect(*loop);
 
   loop->Run(30 * 1000);

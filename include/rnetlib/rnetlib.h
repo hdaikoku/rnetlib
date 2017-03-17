@@ -27,11 +27,13 @@ class RNetLib {
     VERBS
   };
 
-  static void SetMode(Mode mode) {
-    mode_ = mode;
+  static RNetLib &Instance(Mode mode) {
+    static RNetLib instance(mode);
+
+    return instance;
   }
 
-  static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port) {
+  std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port) {
 #ifdef USE_RDMA
     if (mode_ == VERBS) {
       return std::unique_ptr<Client>(new rdma::RDMAClient(addr, port));
@@ -43,7 +45,7 @@ class RNetLib {
 #endif //USE_RDMA
   }
 
-  static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port) {
+  std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port) {
 #ifdef USE_RDMA
     if (mode_ == VERBS) {
       return std::unique_ptr<Server>(new rdma::RDMAServer(addr, port));
@@ -55,7 +57,7 @@ class RNetLib {
 #endif //USE_RDMA
   }
 
-  static std::unique_ptr<EventLoop> NewEventLoop() {
+  std::unique_ptr<EventLoop> NewEventLoop() {
 #ifdef USE_RDMA
     if (mode_ == VERBS) {
       return std::unique_ptr<EventLoop>(new rdma::RDMAEventLoop);
@@ -68,11 +70,11 @@ class RNetLib {
   }
 
  private:
-  static Mode mode_;
+  Mode mode_;
+
+  RNetLib(Mode mode) : mode_(mode) {}
 
 };
-// definition of static member
-RNetLib::Mode RNetLib::mode_ = SOCKET;
 }
 
 #endif //RNETLIB_RNETLIB_H

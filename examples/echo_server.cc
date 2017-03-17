@@ -13,10 +13,10 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  RNetLib::SetMode(RNetLib::Mode::SOCKET);
+  auto rnetlib = RNetLib::Instance(RNetLib::Mode::SOCKET);
 
   // FIXME: handle errors
-  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])));
+  auto server = rnetlib.NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])));
   server->Listen();
   auto channel = server->Accept();
 
