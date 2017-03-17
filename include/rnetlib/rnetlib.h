@@ -27,7 +27,7 @@ class RNetLib {
     VERBS
   };
 
-  static RNetLib &Instance(Mode mode) {
+  static RNetLib &Instance(Mode mode = Mode::SOCKET) {
     static RNetLib instance(mode);
 
     return instance;
