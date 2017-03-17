@@ -22,15 +22,21 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
     // rdma_cm_id prepared by rdma_create_ep is set to sync. mode.
     // if it is meant to be used in async. mode, use rdma_migrate_id with user's event_handler
 
-    return Open(bind_addr_.c_str(), bind_port_, RAI_PASSIVE);
+    if (!Open(bind_addr_.c_str(), bind_port_, RAI_PASSIVE)) {
+      // TODO: log error
+      return false;
+    }
+
+    if (rdma_listen(id_.get(), 1024)) {
+      // TODO: log error
+      return false;
+    }
+
+    return true;
   }
 
   Channel::Ptr Accept() override {
     struct rdma_cm_id *new_id;
-
-    if (rdma_listen(id_.get(), 1024)) {
-      return false;
-    }
 
     if (rdma_get_request(id_.get(), &new_id)) {
       return nullptr;
@@ -50,10 +56,6 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
 
     // migrate rdma_cm_id to event
     loop.AddHandler(*this);
-
-    if (rdma_listen(id_.get(), 1024)) {
-      promise_.set_value(nullptr);
-    }
 
     return promise_.get_future();
   }
