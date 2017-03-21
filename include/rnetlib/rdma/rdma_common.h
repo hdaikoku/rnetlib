@@ -44,6 +44,11 @@ class RDMACommon {
   bool Open(const char *addr, uint16_t port, int flags) {
     struct rdma_addrinfo hints, *tmp_addrinfo;
 
+    if (id_) {
+      // reset the existing rdma_cm_id
+      id_.reset(nullptr);
+    }
+
     std::memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_qp_type = IBV_QPT_RC;
