@@ -33,18 +33,17 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
   std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
-    if (!Open(peer_addr_.c_str(), peer_port_, 0)) {
-      promise_.set_value(nullptr);
-      return promise_.get_future();
-    }
+    if (Open(peer_addr_.c_str(), peer_port_, 0)) {
+      // migrate rdma_cm_id to the event loop
+      loop.AddHandler(*this);
 
-    // migrate rdma_cm_id to the event loop
-    loop.AddHandler(*this);
-
-    if (rdma_connect(id_.get(), nullptr)) {
-      // TODO: handle error
+      if (rdma_connect(id_.get(), nullptr)) {
+        // TODO: handle error
+        promise_.set_value(nullptr);
+      }
+    } else {
+      // error
       promise_.set_value(nullptr);
-      return promise_.get_future();
     }
 
     return promise_.get_future();
@@ -63,8 +62,10 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
   }
 
   int OnError(int error_type) override {
-    // TODO: throw error
-    // promise_.set_exception(ECONNREFUSED);
+    if (error_type == RDMA_CM_EVENT_REJECTED) {
+      // server is not ready yet.
+
+    }
     return MAY_BE_REMOVED;
   }
 
