@@ -93,7 +93,7 @@ class SocketChannel : public Channel, public SocketCommon {
   }
 
   std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const override {
-    return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(nullptr, 0));;
+    return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(nullptr, 0, 0));;
   }
 
  private:

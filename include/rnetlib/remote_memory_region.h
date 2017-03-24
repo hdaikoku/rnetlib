@@ -9,7 +9,7 @@ namespace rnetlib {
 class RemoteMemoryRegion {
  public:
 
-  RemoteMemoryRegion(void *addr, uint32_t rkey) : addr_(addr), rkey_(rkey) {}
+  RemoteMemoryRegion(void *addr, uint32_t rkey, size_t length) : addr_(addr), rkey_(rkey), length_(length) {}
 
   virtual void *GetAddr() const {
     return addr_;
@@ -19,9 +19,14 @@ class RemoteMemoryRegion {
     return rkey_;
   }
 
+  virtual size_t GetLength() const {
+    return length_;
+  }
+
  private:
   void *addr_;
   uint32_t rkey_;
+  size_t length_;
 
 };
 }

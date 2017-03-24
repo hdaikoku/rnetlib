@@ -160,11 +160,13 @@ class RDMAChannel : public Channel, public RDMACommon {
   void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const override {
     uint64_t addr = reinterpret_cast<uintptr_t>(mem.GetAddr());
     uint32_t rkey = mem.GetRKey();
-    auto size = sizeof(addr) + sizeof(rkey);
+    size_t length = mem.GetLength();
+    auto size = sizeof(addr) + sizeof(rkey) + sizeof(length);
 
     std::unique_ptr<char[]> serialized(new char[size]);
     std::memcpy(serialized.get(), &addr, sizeof(addr));
     std::memcpy(serialized.get() + sizeof(addr), &rkey, sizeof(rkey));
+    std::memcpy(serialized.get() + sizeof(addr) + sizeof(rkey), &length, sizeof(length));
 
     Send(serialized.get(), size);
   }
@@ -172,7 +174,8 @@ class RDMAChannel : public Channel, public RDMACommon {
   std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const override {
     uint64_t addr;
     uint32_t rkey;
-    auto size = sizeof(addr) + sizeof(rkey);
+    size_t length;
+    auto size = sizeof(addr) + sizeof(rkey) + sizeof(length);
     std::unique_ptr<char[]> serialized(new char[size]);
 
     // receive memory region info from the peer node
@@ -182,8 +185,9 @@ class RDMAChannel : public Channel, public RDMACommon {
     // deserialize it
     std::memcpy(&addr, serialized.get(), sizeof(addr));
     std::memcpy(&rkey, serialized.get() + sizeof(addr), sizeof(rkey));
+    std::memcpy(&length, serialized.get() + sizeof(addr) + sizeof(rkey), sizeof(length));
 
-    return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(reinterpret_cast<void *>(addr), rkey));
+    return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(reinterpret_cast<void *>(addr), rkey, length));
   }
 
  private:
