@@ -27,52 +27,32 @@ class RNetLib {
     VERBS
   };
 
-  static RNetLib &Instance(Mode mode = Mode::SOCKET) {
-    static RNetLib instance(mode);
-
-    return instance;
-  }
-
-  std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port) {
+  static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
 #ifdef USE_RDMA
-    if (mode_ == VERBS) {
+    if (mode == VERBS) {
       return std::unique_ptr<Client>(new rdma::RDMAClient(addr, port));
-    } else {
-      return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
     }
-#else
+#endif //USE_RDMA
     return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
-#endif //USE_RDMA
   }
 
-  std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port) {
+  static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
 #ifdef USE_RDMA
-    if (mode_ == VERBS) {
+    if (mode == VERBS) {
       return std::unique_ptr<Server>(new rdma::RDMAServer(addr, port));
-    } else {
-      return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
     }
-#else
+#endif //USE_RDMA
     return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
-#endif //USE_RDMA
   }
 
-  std::unique_ptr<EventLoop> NewEventLoop() {
+  static std::unique_ptr<EventLoop> NewEventLoop(Mode mode = Mode::SOCKET) {
 #ifdef USE_RDMA
-    if (mode_ == VERBS) {
+    if (mode == VERBS) {
       return std::unique_ptr<EventLoop>(new rdma::RDMAEventLoop);
-    } else {
-      return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
     }
-#else
-    return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
 #endif //USE_RDMA
+    return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
   }
-
- private:
-  Mode mode_;
-
-  RNetLib(Mode mode) : mode_(mode) {}
 
 };
 }
