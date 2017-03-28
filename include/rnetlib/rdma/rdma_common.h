@@ -16,9 +16,9 @@ class RDMACommon {
   // deleter class for rdma_cm_id
   class RDMACMIDDeleter {
    public:
-    void operator()(struct rdma_cm_id *ep) const {
-      if (ep) {
-        rdma_destroy_ep(ep);
+    void operator()(struct rdma_cm_id *id) const {
+      if (id) {
+        rdma_destroy_ep(id);
       }
     }
   };
@@ -56,7 +56,6 @@ class RDMACommon {
                                  &tmp_addrinfo);
     if (error) {
       // TODO: log error
-      // LogError(gai_strerror(error));
       return false;
     }
 
