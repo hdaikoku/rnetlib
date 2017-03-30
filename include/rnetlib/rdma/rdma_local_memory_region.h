@@ -23,14 +23,14 @@ class RDMALocalMemoryRegion : public LocalMemoryRegion {
     if (type & MR_LOCAL_WRITE) {
       ibv_mr_type |= IBV_ACCESS_LOCAL_WRITE;
     }
+    if (type & MR_REMOTE_READ) {
+      ibv_mr_type |= IBV_ACCESS_REMOTE_READ;
+    }
     if (type & MR_REMOTE_WRITE) {
       ibv_mr_type |= IBV_ACCESS_REMOTE_WRITE;
       // If IBV_ACCESS_REMOTE_WRITE or IBV_ACCESS_REMOTE_ATOMIC is set,
       // then IBV_ACCESS_LOCAL_WRITE must be set too.
       ibv_mr_type |= IBV_ACCESS_LOCAL_WRITE;
-    }
-    if (type & MR_REMOTE_READ) {
-      ibv_mr_type |= IBV_ACCESS_REMOTE_READ;
     }
 
     auto mr = ibv_reg_mr(pd, addr, length, ibv_mr_type);
@@ -38,6 +38,7 @@ class RDMALocalMemoryRegion : public LocalMemoryRegion {
       // failed to registere MR
       return nullptr;
     }
+
     return std::unique_ptr<LocalMemoryRegion>(new RDMALocalMemoryRegion(mr));
   }
 

@@ -26,7 +26,7 @@ class RDMAChannel : public Channel, public RDMACommon {
   }
 
   size_t Send(void *buf, size_t len) const override {
-    auto mem = RegisterMemory(buf, len, MR_LOCAL_WRITE);
+    auto mem = RegisterMemory(buf, len, MR_LOCAL_READ);
     if (!mem) {
       // error
       return 0;
