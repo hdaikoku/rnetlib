@@ -61,7 +61,7 @@ class SocketCommon {
     }
   };
 
-  SocketCommon() {}
+  SocketCommon() = default;
 
   SocketCommon(int sock_fd) : sock_fd_(sock_fd) {}
 

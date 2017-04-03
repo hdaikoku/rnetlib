@@ -11,6 +11,9 @@ namespace rnetlib {
 class EventHandler {
  public:
 
+  // keep this empty virtual destructor for derived classes
+  virtual ~EventHandler() = default;
+
   virtual int OnEvent(int event_type, void *arg) = 0;
 
   virtual int OnError(int error_type) = 0;

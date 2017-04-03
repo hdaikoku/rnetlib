@@ -16,6 +16,9 @@ namespace rnetlib {
 class LocalMemoryRegion {
  public:
 
+  // keep this empty virtual destructor for derived classes
+  virtual ~LocalMemoryRegion() = default;
+
   virtual void *GetAddr() const = 0;
 
   virtual size_t GetLength() const = 0;

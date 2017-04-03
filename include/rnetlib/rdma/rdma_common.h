@@ -23,11 +23,7 @@ class RDMACommon {
     }
   };
 
-  RDMACommon() {}
-
-  virtual ~RDMACommon() {
-    rdma_disconnect(id_.get());
-  }
+  RDMACommon() = default;
 
  protected:
   std::unique_ptr<struct rdma_cm_id, RDMACMIDDeleter> id_;

@@ -15,6 +15,9 @@ namespace rnetlib {
 class Server {
  public:
 
+  // keep this empty virtual destructor for derived classes
+  virtual ~Server() = default;
+  
   virtual bool Listen() = 0;
 
   virtual Channel::Ptr Accept() = 0;

@@ -21,6 +21,10 @@ class RDMAChannel : public Channel, public RDMACommon {
 
   RDMAChannel(struct rdma_cm_id *id) : RDMACommon(id) {}
 
+  virtual ~RDMAChannel() {
+    rdma_disconnect(id_.get());
+  }
+
   bool SetNonBlocking(bool non_blocking) override {
     return true;
   }

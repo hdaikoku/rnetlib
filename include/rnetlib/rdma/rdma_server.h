@@ -18,6 +18,8 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
   RDMAServer(const std::string &bind_addr, uint16_t bind_port)
       : bind_addr_(bind_addr), bind_port_(bind_port) {}
 
+  virtual ~RDMAServer() = default;
+
   bool Listen() override {
     // rdma_cm_id prepared by rdma_create_ep is set to sync. mode.
     // if it is meant to be used in async. mode, use rdma_migrate_id with user's event_handler

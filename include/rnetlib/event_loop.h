@@ -13,6 +13,9 @@ class EventLoop {
   static const int kErrTimedOut = 1;
   static const int kErrFailed = 2;
 
+  // keep this empty virtual destructor for derived classes
+  virtual ~EventLoop() = default;
+
   virtual void AddHandler(EventHandler &handler) = 0;
 
   virtual int Run(int timeout) = 0;

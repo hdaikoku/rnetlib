@@ -15,6 +15,9 @@ namespace rnetlib {
 class Client {
  public:
 
+  // keep this empty virtual destructor for derived classes
+  virtual ~Client() = default;
+
   virtual Channel::Ptr Connect() = 0;
 
   virtual std::future<Channel::Ptr> Connect(EventLoop &loop,
