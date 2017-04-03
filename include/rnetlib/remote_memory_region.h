@@ -11,15 +11,15 @@ class RemoteMemoryRegion {
 
   RemoteMemoryRegion(void *addr, uint32_t rkey, size_t length) : addr_(addr), rkey_(rkey), length_(length) {}
 
-  virtual void *GetAddr() const {
+  void *GetAddr() const {
     return addr_;
   }
 
-  virtual uint32_t GetRKey() const {
+  uint32_t GetRKey() const {
     return rkey_;
   }
 
-  virtual size_t GetLength() const {
+  size_t GetLength() const {
     return length_;
   }
 
