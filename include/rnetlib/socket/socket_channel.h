@@ -76,14 +76,6 @@ class SocketChannel : public Channel, public SocketCommon {
     return Recv(local_mem.GetAddr(), local_mem.GetLength());
   }
 
-  size_t PollWrite(LocalMemoryRegion &local_mem) const override {
-    return Recv(local_mem.GetAddr(), local_mem.GetLength());
-  }
-
-  size_t PollRead(LocalMemoryRegion &local_mem) const override {
-    return Send(local_mem.GetAddr(), local_mem.GetLength());
-  }
-
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
     return std::unique_ptr<LocalMemoryRegion>(new SocketLocalMemoryRegion(addr, len));
   }

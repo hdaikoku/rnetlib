@@ -33,10 +33,6 @@ class Channel {
 
   virtual size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const = 0;
 
-  virtual size_t PollWrite(LocalMemoryRegion &local_mem) const = 0;
-
-  virtual size_t PollRead(LocalMemoryRegion &local_mem) const = 0;
-
   virtual std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const = 0;
 
   virtual void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const = 0;

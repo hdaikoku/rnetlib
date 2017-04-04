@@ -149,14 +149,6 @@ class RDMAChannel : public Channel, public RDMACommon {
     return PollCQ(id_->send_cq_channel, id_->send_cq) ? local_mem.GetLength() : 0;
   }
 
-  size_t PollWrite(LocalMemoryRegion &local_mem) const override {
-    return local_mem.GetLength();
-  }
-
-  size_t PollRead(LocalMemoryRegion &local_mem) const override {
-    return local_mem.GetLength();
-  }
-
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
     return RDMALocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
