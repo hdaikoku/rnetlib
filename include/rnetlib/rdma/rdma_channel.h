@@ -81,7 +81,7 @@ class RDMAChannel : public Channel {
       return 0;
     }
 
-    return PollCQ(id_->send_cq_channel, id_->send_cq) ? mem.GetLength() : 0;
+    return PollCQ(id_->send_cq) ? mem.GetLength() : 0;
   }
 
   size_t Recv(LocalMemoryRegion &mem) const override {
@@ -102,7 +102,7 @@ class RDMAChannel : public Channel {
       return 0;
     }
 
-    return PollCQ(id_->recv_cq_channel, id_->recv_cq) ? mem.GetLength() : 0;
+    return PollCQ(id_->recv_cq) ? mem.GetLength() : 0;
   }
 
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
@@ -130,7 +130,7 @@ class RDMAChannel : public Channel {
       return 0;
     }
 
-    return PollCQ(id_->send_cq_channel, id_->send_cq) ? local_mem.GetLength() : 0;
+    return PollCQ(id_->send_cq) ? local_mem.GetLength() : 0;
   }
 
   size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
@@ -155,7 +155,7 @@ class RDMAChannel : public Channel {
       return 0;
     }
 
-    return PollCQ(id_->send_cq_channel, id_->send_cq) ? local_mem.GetLength() : 0;
+    return PollCQ(id_->send_cq) ? local_mem.GetLength() : 0;
   }
 
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
