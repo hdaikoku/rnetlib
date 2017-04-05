@@ -12,7 +12,7 @@
 
 namespace rnetlib {
 namespace rdma {
-class RDMAServer : public Server, public RDMACommon, public EventHandler {
+class RDMAServer : public Server, public EventHandler {
  public:
 
   RDMAServer(const std::string &bind_addr, uint16_t bind_port)
@@ -24,12 +24,13 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
     // rdma_cm_id prepared by rdma_create_ep is set to sync. mode.
     // if it is meant to be used in async. mode, use rdma_migrate_id with user's event_handler
 
-    if (!Open(bind_addr_.c_str(), bind_port_, RAI_PASSIVE)) {
+    listen_id_ = RDMACommon::NewRDMACommID(bind_addr_.c_str(), bind_port_, RAI_PASSIVE);
+    if (!listen_id_) {
       // TODO: log error
       return false;
     }
 
-    if (rdma_listen(id_.get(), 1024)) {
+    if (rdma_listen(listen_id_.get(), 1024)) {
       // TODO: log error
       return false;
     }
@@ -40,7 +41,7 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
   Channel::Ptr Accept() override {
     struct rdma_cm_id *new_id;
 
-    if (rdma_get_request(id_.get(), &new_id)) {
+    if (rdma_get_request(listen_id_.get(), &new_id)) {
       return nullptr;
     }
 
@@ -50,7 +51,7 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
     }
 
     // FIXME: might be better to wait for RDMA_CM_EVENT_ESTABLISHED event
-    return std::unique_ptr<Channel>(new RDMAChannel(new_id));
+    return std::unique_ptr<Channel>(new RDMAChannel(RDMACommon::RDMACommID(new_id)));
   }
 
   std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(Channel &)> on_established) override {
@@ -69,13 +70,8 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
       accepting_id_.reset(reinterpret_cast<struct rdma_cm_id *>(arg));
 
       struct ibv_qp_init_attr init_attr;
+      RDMACommon::SetInitAttr(init_attr);
       std::memset(&init_attr, 0, sizeof(init_attr));
-      init_attr.qp_type = IBV_QPT_RC;
-      init_attr.cap.max_send_sge = init_attr.cap.max_recv_sge = 1;
-      init_attr.cap.max_send_wr = init_attr.cap.max_recv_wr = 1;
-      init_attr.sq_sig_all = 1;
-      // TODO: max_inline_data should be user-configurable
-      init_attr.cap.max_inline_data = 16;
 
       if (rdma_create_qp(accepting_id_.get(), accepting_id_->pd, &init_attr)) {
         promise_.set_value(nullptr);
@@ -91,7 +87,7 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
       }
     } else if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
       // connection established.
-      std::unique_ptr<Channel> channel(new RDMAChannel(accepting_id_.release()));
+      std::unique_ptr<Channel> channel(new RDMAChannel(std::move(accepting_id_)));
       if (on_established_) {
         on_established_(*channel);
       }
@@ -111,7 +107,7 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
       return accepting_id_.get();
     }
 
-    return id_.get();
+    return listen_id_.get();
   }
 
   short GetEventType() const override {
@@ -119,11 +115,12 @@ class RDMAServer : public Server, public RDMACommon, public EventHandler {
   }
 
  private:
+  RDMACommon::RDMACommID listen_id_;
+  RDMACommon::RDMACommID accepting_id_;
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;
   std::function<void(Channel &)> on_established_;
-  std::unique_ptr<struct rdma_cm_id, RDMACMIDDeleter> accepting_id_;
 
 };
 }

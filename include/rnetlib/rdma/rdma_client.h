@@ -10,7 +10,7 @@
 
 namespace rnetlib {
 namespace rdma {
-class RDMAClient : public Client, public RDMACommon, public EventHandler {
+class RDMAClient : public Client, public EventHandler {
  public:
 
   RDMAClient(const std::string &peer_addr, uint16_t peer_port)
@@ -19,7 +19,8 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
   virtual ~RDMAClient() {}
 
   Channel::Ptr Connect() override {
-    if (!Open(peer_addr_.c_str(), peer_port_, 0)) {
+    id_ = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    if (!id_) {
       return nullptr;
     }
 
@@ -27,13 +28,14 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
       return nullptr;
     }
 
-    return std::unique_ptr<Channel>(new RDMAChannel(id_.release()));
+    return std::unique_ptr<Channel>(new RDMAChannel(std::move(id_)));
   }
 
   std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
-    if (Open(peer_addr_.c_str(), peer_port_, 0)) {
+    id_ = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    if (id_) {
       // migrate rdma_cm_id to the event loop
       loop.AddHandler(*this);
 
@@ -51,7 +53,7 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
-      std::unique_ptr<Channel> channel(new RDMAChannel(id_.release()));
+      std::unique_ptr<Channel> channel(new RDMAChannel(std::move(id_)));
       if (on_established_) {
         on_established_(*channel);
       }
@@ -78,6 +80,7 @@ class RDMAClient : public Client, public RDMACommon, public EventHandler {
   }
 
  private:
+  RDMACommon::RDMACommID id_;
   std::string peer_addr_;
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;

@@ -16,13 +16,22 @@
 
 namespace rnetlib {
 namespace rdma {
-class RDMAChannel : public Channel, public RDMACommon {
+class RDMAChannel : public Channel {
  public:
 
-  RDMAChannel(struct rdma_cm_id *id) : RDMACommon(id) {}
+  RDMAChannel(RDMACommon::RDMACommID id) : id_(std::move(id)) {
+    struct ibv_qp_attr attr;
+    struct ibv_qp_init_attr init_attr;
+
+    ibv_query_qp(id_->qp, &attr, 0, &init_attr);
+    max_inline_data_ = attr.cap.max_inline_data;
+    max_send_wr_ = attr.cap.max_send_wr;
+  }
 
   virtual ~RDMAChannel() {
-    rdma_disconnect(id_.get());
+    if (id_) {
+      rdma_disconnect(id_.get());
+    }
   }
 
   bool SetNonBlocking(bool non_blocking) override {
@@ -187,6 +196,9 @@ class RDMAChannel : public Channel, public RDMACommon {
   }
 
  private:
+  RDMACommon::RDMACommID id_;
+  uint32_t max_inline_data_;
+  uint32_t max_send_wr_;
 
   bool PollCQ(struct ibv_comp_channel *channel, struct ibv_cq *cq) const {
     // request event notifications
