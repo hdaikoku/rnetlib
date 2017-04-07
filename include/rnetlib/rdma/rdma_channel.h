@@ -285,51 +285,14 @@ class RDMAChannel : public Channel {
     return PollCQ(id_->send_cq);
   }
 
-  bool PollCQ(struct ibv_comp_channel *channel, struct ibv_cq *cq) const {
-    // request event notifications
-    ibv_req_notify_cq(cq, 0);
-    // set the file descriptor associated with the channel to non-blocking mode
-    fcntl(channel->fd, F_SETFL, fcntl(channel->fd, F_GETFL) | O_NONBLOCK);
-
-    struct pollfd pfd;
-    std::memset(&pfd, 0, sizeof(struct pollfd));
-    pfd.fd = channel->fd;
-    pfd.events = POLLIN;
-
-    int rc = 0;
-    do {
-      rc = poll(&pfd, 1, 300);
-    } while (rc == 0);
-
-    if (rc < 0 || pfd.revents != POLLIN) {
-      // error
-      return false;
-    }
-
-    struct ibv_cq *ev_cq;
-    void *ev_ctx;
-    if (ibv_get_cq_event(channel, &ev_cq, &ev_ctx)) {
-      // error
-      return false;
-    }
-    if (ev_cq != cq) {
-      // unknown CQ
-      return false;
-    }
-
-    ibv_ack_cq_events(cq, 1);
-
-    return PollCQ(cq);
-  }
-
   bool PollCQ(struct ibv_cq *cq) const {
+    int ret = 0;
     struct ibv_wc wc;
 
-    while (ibv_poll_cq(cq, 1, &wc) < 1) {
-      // poll
-    }
+    // poll
+    while ((ret = ibv_poll_cq(cq, 1, &wc)) == 0);
 
-    return (wc.status == IBV_WC_SUCCESS);
+    return (ret < 0) ? false : (wc.status == IBV_WC_SUCCESS);
   }
 
 };
