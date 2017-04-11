@@ -190,6 +190,10 @@ class RDMAChannel : public Channel {
     return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(reinterpret_cast<void *>(addr), rkey, length));
   }
 
+  const struct rdma_cm_id *GetIDPtr() const {
+    return id_.get();
+  }
+
  private:
 
   class BaseBuffer {

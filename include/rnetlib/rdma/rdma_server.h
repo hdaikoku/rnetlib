@@ -21,9 +21,6 @@ class RDMAServer : public Server, public EventHandler {
   virtual ~RDMAServer() = default;
 
   bool Listen() override {
-    // rdma_cm_id prepared by rdma_create_ep is set to sync. mode.
-    // if it is meant to be used in async. mode, use rdma_migrate_id with user's event_handler
-
     listen_id_ = RDMACommon::NewRDMACommID(bind_addr_.c_str(), bind_port_, RAI_PASSIVE);
     if (!listen_id_) {
       // TODO: log error
@@ -45,13 +42,13 @@ class RDMAServer : public Server, public EventHandler {
       return nullptr;
     }
 
-    if (rdma_accept(new_id, nullptr)) {
-      rdma_destroy_id(new_id);
+    channel_.reset(new RDMAChannel(RDMACommon::RDMACommID(new_id)));
+    if (rdma_accept(const_cast<struct rdma_cm_id *>(channel_->GetIDPtr()), nullptr)) {
       return nullptr;
     }
 
     // FIXME: might be better to wait for RDMA_CM_EVENT_ESTABLISHED event
-    return std::unique_ptr<Channel>(new RDMAChannel(RDMACommon::RDMACommID(new_id)));
+    return Channel::Ptr(channel_.release());
   }
 
   std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(Channel &)> on_established) override {
@@ -67,18 +64,19 @@ class RDMAServer : public Server, public EventHandler {
     if (event_type == RDMA_CM_EVENT_CONNECT_REQUEST) {
       // got a connect request.
       // issue accept and wait for establishment.
-      accepting_id_.reset(reinterpret_cast<struct rdma_cm_id *>(arg));
+      channel_.reset(new RDMAChannel(RDMACommon::RDMACommID(reinterpret_cast<struct rdma_cm_id *>(arg))));
+      auto id = channel_->GetIDPtr();
 
       struct ibv_qp_init_attr init_attr;
       RDMACommon::SetInitAttr(init_attr);
       std::memset(&init_attr, 0, sizeof(init_attr));
 
-      if (rdma_create_qp(accepting_id_.get(), accepting_id_->pd, &init_attr)) {
+      if (rdma_create_qp(const_cast<struct rdma_cm_id *>(id), id->pd, &init_attr)) {
         promise_.set_value(nullptr);
         return MAY_BE_REMOVED;
       }
 
-      if (rdma_accept(accepting_id_.get(), nullptr)) {
+      if (rdma_accept(const_cast<struct rdma_cm_id *>(id), nullptr)) {
         // TODO: log error
         promise_.set_value(nullptr);
       } else {
@@ -87,11 +85,10 @@ class RDMAServer : public Server, public EventHandler {
       }
     } else if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
       // connection established.
-      std::unique_ptr<Channel> channel(new RDMAChannel(std::move(accepting_id_)));
       if (on_established_) {
-        on_established_(*channel);
+        on_established_(*channel_);
       }
-      promise_.set_value(std::move(channel));
+      promise_.set_value(Channel::Ptr(channel_.release()));
     }
 
     return MAY_BE_REMOVED;
@@ -103,8 +100,8 @@ class RDMAServer : public Server, public EventHandler {
   }
 
   void *GetHandlerID() const override {
-    if (accepting_id_) {
-      return accepting_id_.get();
+    if (channel_) {
+      return const_cast<struct rdma_cm_id *>(channel_->GetIDPtr());
     }
 
     return listen_id_.get();
@@ -116,7 +113,7 @@ class RDMAServer : public Server, public EventHandler {
 
  private:
   RDMACommon::RDMACommID listen_id_;
-  RDMACommon::RDMACommID accepting_id_;
+  std::unique_ptr<RDMAChannel> channel_;
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;

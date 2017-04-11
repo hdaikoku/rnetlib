@@ -19,27 +19,31 @@ class RDMAClient : public Client, public EventHandler {
   virtual ~RDMAClient() {}
 
   Channel::Ptr Connect() override {
-    id_ = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
-    if (!id_) {
+    auto id = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    if (!id) {
       return nullptr;
     }
 
-    if (rdma_connect(id_.get(), nullptr)) {
+    channel_.reset(new RDMAChannel(std::move(id)));
+
+    if (rdma_connect(const_cast<struct rdma_cm_id *>(channel_->GetIDPtr()), nullptr)) {
       return nullptr;
     }
 
-    return std::unique_ptr<Channel>(new RDMAChannel(std::move(id_)));
+    return Channel::Ptr(channel_.release());
   }
 
   std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
-    id_ = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
-    if (id_) {
+    auto id = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    if (id) {
+      channel_.reset(new RDMAChannel(std::move(id)));
+
       // migrate rdma_cm_id to the event loop
       loop.AddHandler(*this);
 
-      if (rdma_connect(id_.get(), nullptr)) {
+      if (rdma_connect(const_cast<struct rdma_cm_id *>(channel_->GetIDPtr()), nullptr)) {
         // TODO: handle error
         promise_.set_value(nullptr);
       }
@@ -53,11 +57,10 @@ class RDMAClient : public Client, public EventHandler {
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type == RDMA_CM_EVENT_ESTABLISHED) {
-      std::unique_ptr<Channel> channel(new RDMAChannel(std::move(id_)));
       if (on_established_) {
-        on_established_(*channel);
+        on_established_(*channel_);
       }
-      promise_.set_value(std::move(channel));
+      promise_.set_value(Channel::Ptr(channel_.release()));
     }
 
     return MAY_BE_REMOVED;
@@ -72,7 +75,7 @@ class RDMAClient : public Client, public EventHandler {
   }
 
   void *GetHandlerID() const override {
-    return id_.get();
+    return const_cast<struct rdma_cm_id *>(channel_->GetIDPtr());
   }
 
   short GetEventType() const override {
@@ -80,7 +83,7 @@ class RDMAClient : public Client, public EventHandler {
   }
 
  private:
-  RDMACommon::RDMACommID id_;
+  std::unique_ptr<RDMAChannel> channel_;
   std::string peer_addr_;
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;
