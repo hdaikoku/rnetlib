@@ -16,7 +16,7 @@ int main(int argc, const char **argv) {
   int num_sgs = std::stoi(argv[2]);
 
   // FIXME: handle errors
-  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::VERBS);
+  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::SOCKET);
   server->Listen();
   auto channel = server->Accept();
 

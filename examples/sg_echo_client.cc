@@ -16,7 +16,7 @@ int main(int argc, const char **argv) {
   int num_sgs = std::stoi(argv[3]);
 
   // FIXME: handle errors
-  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), RNetLib::Mode::VERBS);
+  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), RNetLib::Mode::SOCKET);
   auto channel = client->Connect();
 
   std::vector<std::unique_ptr<LocalMemoryRegion>> mrs;
