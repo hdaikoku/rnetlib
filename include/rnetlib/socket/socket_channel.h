@@ -68,6 +68,32 @@ class SocketChannel : public Channel, public SocketCommon {
     return Recv(mem.GetAddr(), mem.GetLength());
   }
 
+  size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+    struct iovec iov[mrs.size()];
+    int iovcnt = 0;
+
+    for (const auto &mr : mrs) {
+      iov[iovcnt].iov_base = mr->GetAddr();
+      iov[iovcnt].iov_len = mr->GetLength();
+      iovcnt++;
+    }
+
+    return S_WRITEV(sock_fd_, iov, iovcnt);
+  }
+
+  size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+    struct iovec iov[mrs.size()];
+    int iovcnt = 0;
+
+    for (const auto &mr : mrs) {
+      iov[iovcnt].iov_base = mr->GetAddr();
+      iov[iovcnt].iov_len = mr->GetLength();
+      iovcnt++;
+    }
+
+    return S_READV(sock_fd_, iov, iovcnt);
+  }
+
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
     return Send(local_mem.GetAddr(), local_mem.GetLength());
   }

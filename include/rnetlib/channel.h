@@ -6,6 +6,7 @@
 #define RNETLIB_CHANNEL_H
 
 #include <memory>
+#include <vector>
 
 #include "rnetlib/local_memory_region.h"
 #include "rnetlib/remote_memory_region.h"
@@ -28,6 +29,10 @@ class Channel {
   virtual size_t Send(LocalMemoryRegion &mem) const = 0;
 
   virtual size_t Recv(LocalMemoryRegion &mem) const = 0;
+
+  virtual size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const = 0;
+
+  virtual size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const = 0;
 
   virtual size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const = 0;
 

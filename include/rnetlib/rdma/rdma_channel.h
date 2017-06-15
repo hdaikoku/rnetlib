@@ -27,6 +27,8 @@ class RDMAChannel : public Channel {
     ibv_query_qp(id_->qp, &attr, 0, &init_attr);
     max_inline_data_ = attr.cap.max_inline_data;
     max_send_wr_ = attr.cap.max_send_wr;
+    max_send_sge_ = attr.cap.max_send_sge;
+    max_recv_sge_ = attr.cap.max_recv_sge;
 
     struct ibv_recv_wr *bad_wr;
     ibv_post_recv(id_->qp, const_cast<struct ibv_recv_wr *>(recv_buf_.GetWorkRequestPtr()), &bad_wr);
@@ -108,6 +110,41 @@ class RDMAChannel : public Channel {
 
   size_t Recv(LocalMemoryRegion &mem) const override {
     return Recv(mem.GetAddr(), mem.GetLength());
+  }
+
+  size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+    // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
+    size_t offset = 0, len = 0;
+    for (const auto &mr : vec) {
+      len += mr->GetLength();
+    }
+    std::unique_ptr<char[]> buf(new char[len]);
+    for (const auto &mr : vec) {
+      std::memcpy(buf.get() + offset, mr->GetAddr(), mr->GetLength());
+      offset += mr->GetLength();
+    }
+
+    return Send(buf.get(), len);
+  }
+
+  size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+    // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
+    size_t offset = 0, len = 0;
+    for (const auto &mr : vec) {
+      len += mr->GetLength();
+    }
+    std::unique_ptr<char[]> buf(new char[len]);
+    if (Recv(buf.get(), len) != len) {
+      // error
+      return 0;
+    }
+
+    for (const auto &mr : vec) {
+      std::memcpy(mr->GetAddr(), buf.get() + offset, mr->GetLength());
+      offset += mr->GetLength();
+    }
+
+    return len;
   }
 
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
@@ -275,6 +312,8 @@ class RDMAChannel : public Channel {
   RDMACommon::RDMACommID id_;
   uint32_t max_inline_data_;
   uint32_t max_send_wr_;
+  uint32_t max_send_sge_;
+  uint32_t max_recv_sge_;
   SendBuffer send_buf_;
   RecvBuffer recv_buf_;
 

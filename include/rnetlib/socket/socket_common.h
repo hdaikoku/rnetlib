@@ -12,6 +12,7 @@
 #include <string>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 
 #ifdef USE_RDMA
 // rsocket-specific functions
@@ -22,6 +23,8 @@
 #define S_SHUTDOWN(f, h)             rshutdown(f, h)
 #define S_WRITE(f, b, l)             rwrite(f, b, l)
 #define S_READ(f, b, l)              rread(f, b, l)
+#define S_WRITEV(f, v, c)            rwritev(f, v, c)
+#define S_READV(f, v, c)             rreadv(f, v, c)
 #define S_FCNTL(s,c,p)               rfcntl(s, c, p)
 #define S_ADDRINFO                   rdma_addrinfo
 #define S_GETADDRINFO(a, p, h, r)    rdma_getaddrinfo(a, p, h, r)
@@ -37,6 +40,8 @@
 #define S_SHUTDOWN(f, h)             shutdown(f, h)
 #define S_WRITE(f, b, l)             write(f, b, l)
 #define S_READ(f, b, l)              read(f, b, l)
+#define S_WRITEV(f, v, c)            writev(f, v, c)
+#define S_READV(f, v, c)             readv(f, v, c)
 #define S_FCNTL(s, c, p)             fcntl(s, c, p)
 #define S_ADDRINFO                   addrinfo
 #define S_GETADDRINFO(a, p, h, r)    getaddrinfo(a, p, h, r)

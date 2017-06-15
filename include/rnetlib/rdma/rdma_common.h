@@ -28,7 +28,7 @@ class RDMACommon {
   static void SetInitAttr(struct ibv_qp_init_attr &init_attr) {
     std::memset(&init_attr, 0, sizeof(init_attr));
     init_attr.qp_type = IBV_QPT_RC;
-    init_attr.cap.max_send_sge = init_attr.cap.max_recv_sge = 1;
+    init_attr.cap.max_send_sge = init_attr.cap.max_recv_sge = 32;
     init_attr.cap.max_send_wr = 1;
     // to make Receive WR constantly available in QP,
     // max_recv_wr must be bigger than 2
