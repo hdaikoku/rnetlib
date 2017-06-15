@@ -70,7 +70,8 @@ class SocketChannel : public Channel, public SocketCommon {
 
   size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
     struct iovec iov[mrs.size()];
-    int iovcnt = 0;
+    int iovcnt = 0, offset = 0;
+    size_t total_sent = 0;
 
     for (const auto &mr : mrs) {
       iov[iovcnt].iov_base = mr->GetAddr();
@@ -78,12 +79,30 @@ class SocketChannel : public Channel, public SocketCommon {
       iovcnt++;
     }
 
-    return S_WRITEV(sock_fd_, iov, iovcnt);
+    while (iovcnt > offset) {
+      auto sent = S_WRITEV(sock_fd_, iov + offset, iovcnt - offset);
+      if (sent > 0) {
+        while (offset < iovcnt) {
+          if (iov[offset].iov_len > sent) {
+            break;
+          }
+          sent -= iov[offset].iov_len;
+          total_sent += iov[offset].iov_len;
+          offset++;
+        }
+      } else {
+        // TODO: handle error
+        return 0;
+      }
+    }
+
+    return total_sent;
   }
 
   size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
     struct iovec iov[mrs.size()];
-    int iovcnt = 0;
+    int iovcnt = 0, offset = 0;
+    size_t total_recvd = 0;
 
     for (const auto &mr : mrs) {
       iov[iovcnt].iov_base = mr->GetAddr();
@@ -91,7 +110,24 @@ class SocketChannel : public Channel, public SocketCommon {
       iovcnt++;
     }
 
-    return S_READV(sock_fd_, iov, iovcnt);
+    while (iovcnt > offset) {
+      auto recvd = S_READV(sock_fd_, iov + offset, iovcnt - offset);
+      if (recvd > 0) {
+        while (offset < iovcnt) {
+          if (iov[offset].iov_len > recvd) {
+            break;
+          }
+          recvd -= iov[offset].iov_len;
+          total_recvd += iov[offset].iov_len;
+          offset++;
+        }
+      } else {
+        // TODO: handle error
+        return 0;
+      }
+    }
+
+    return total_recvd;
   }
 
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
