@@ -82,12 +82,14 @@ class SocketChannel : public Channel, public SocketCommon {
     while (iovcnt > offset) {
       auto sent = S_WRITEV(sock_fd_, iov + offset, iovcnt - offset);
       if (sent > 0) {
+        total_sent += sent;
         while (offset < iovcnt) {
           if (iov[offset].iov_len > sent) {
+            iov[offset].iov_base = static_cast<char *>(iov[offset].iov_base) + sent;
+            iov[offset].iov_len -= sent;
             break;
           }
           sent -= iov[offset].iov_len;
-          total_sent += iov[offset].iov_len;
           offset++;
         }
       } else {
@@ -113,12 +115,14 @@ class SocketChannel : public Channel, public SocketCommon {
     while (iovcnt > offset) {
       auto recvd = S_READV(sock_fd_, iov + offset, iovcnt - offset);
       if (recvd > 0) {
+        total_recvd += recvd;
         while (offset < iovcnt) {
           if (iov[offset].iov_len > recvd) {
+            iov[offset].iov_base = static_cast<char *>(iov[offset].iov_base) + recvd;
+            iov[offset].iov_len -= recvd;
             break;
           }
           recvd -= iov[offset].iov_len;
-          total_recvd += iov[offset].iov_len;
           offset++;
         }
       } else {
