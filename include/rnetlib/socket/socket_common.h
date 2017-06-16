@@ -146,7 +146,7 @@ class SocketCommon {
   }
 
   bool GetSockOpt(int level, int option_name, int &val) {
-    socklen_t len;
+    socklen_t len = sizeof(val);
     return (S_GETSOCKOPT(sock_fd_, level, option_name, &val, &len) == 0);
   }
 
