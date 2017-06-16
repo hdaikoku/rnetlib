@@ -5,6 +5,7 @@
 #ifndef RNETLIB_SOCKET_SOCKET_CHANNEL_H
 #define RNETLIB_SOCKET_SOCKET_CHANNEL_H
 
+#include <limits.h>
 #include <netdb.h>
 #include <string>
 #include <unistd.h>
@@ -14,6 +15,10 @@
 #include "rnetlib/channel.h"
 #include "rnetlib/socket/socket_common.h"
 #include "rnetlib/socket/socket_local_memory_region.h"
+
+#ifndef IOV_MAX
+#define IOV_MAX 1024
+#endif //IOV_MAX
 
 namespace rnetlib {
 namespace socket {
@@ -80,7 +85,7 @@ class SocketChannel : public Channel, public SocketCommon {
     }
 
     while (iovcnt > offset) {
-      auto sent = S_WRITEV(sock_fd_, iov + offset, iovcnt - offset);
+      auto sent = S_WRITEV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
       if (sent > 0) {
         total_sent += sent;
         while (offset < iovcnt) {
@@ -113,7 +118,7 @@ class SocketChannel : public Channel, public SocketCommon {
     }
 
     while (iovcnt > offset) {
-      auto recvd = S_READV(sock_fd_, iov + offset, iovcnt - offset);
+      auto recvd = S_READV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
       if (recvd > 0) {
         total_recvd += recvd;
         while (offset < iovcnt) {
