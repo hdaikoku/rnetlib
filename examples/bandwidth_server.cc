@@ -28,17 +28,11 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto loop = RNetLib::NewEventLoop(RNetLib::Mode::SOCKET);
   auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::SOCKET);
   server->Listen();
-  auto future_channel = server->Accept(*loop);
+  auto channel = server->Accept();
 
-  loop->Run(30 * 1000);
-
-  auto channel = future_channel.get();
-  channel->SetNonBlocking(false);
-
-  size_t max_bytes = (1 << 27);
+  size_t max_bytes = (1 << 23);
   for (size_t i = 1; i <= max_bytes; i *= 2) {
     do_pingpong(*channel, i);
   }

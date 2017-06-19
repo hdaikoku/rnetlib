@@ -36,16 +36,10 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto loop = RNetLib::NewEventLoop(RNetLib::Mode::SOCKET);
   auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), RNetLib::Mode::SOCKET);
-  auto future_channel = client->Connect(*loop);
+  auto channel = client->Connect();
 
-  loop->Run(30 * 1000);
-
-  auto channel = future_channel.get();
-  channel->SetNonBlocking(false);
-
-  size_t max_bytes = (1 << 27);
+  size_t max_bytes = (1 << 23);
   std::cout << "Length[Bytes]" << "\t" << "Bandwidth[Gbit/s]" << std::endl;
   for (size_t i = 1; i <= max_bytes; i *= 2) {
     do_pingpong(*channel, i);
