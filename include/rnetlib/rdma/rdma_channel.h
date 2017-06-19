@@ -14,7 +14,7 @@
 #include "rnetlib/rdma/rdma_common.h"
 #include "rnetlib/rdma/rdma_local_memory_region.h"
 
-#define IBV_RCVBUF (1 << 21)
+#define IBV_RCVBUF 32
 
 namespace rnetlib {
 namespace rdma {
@@ -51,62 +51,73 @@ class RDMAChannel : public Channel {
   }
 
   size_t Recv(void *buf, size_t len) const override {
-    size_t offset = 0;
-    struct ibv_recv_wr *bad_wr;
-
-    while (offset < len) {
-      if (ibv_post_recv(id_->qp, const_cast<struct ibv_recv_wr *>(recv_buf_.GetWorkRequestPtr()), &bad_wr)) {
-        // error
-        break;
-      }
-
-      if (!PollCQ(id_->recv_cq)) {
-        // error
-        break;
-      }
-
-      offset += recv_buf_.Read(buf + offset, len - offset);
-    }
-
-    return offset;
+    auto mr = RegisterMemory(buf, len, MR_LOCAL_WRITE);
+    return Recv(*mr);
   }
 
   size_t Send(LocalMemoryRegion &mem) const override {
     size_t sending_len, offset = 0;
-    struct ibv_sge sge;
-    struct ibv_send_wr wr;
     auto buf = mem.GetAddr();
     auto len = mem.GetLength();
 
-    while (offset < len) {
-      sending_len = ((len - offset) > IBV_RCVBUF) ? IBV_RCVBUF : (len - offset);
+    sending_len = (len < IBV_RCVBUF) ? len : IBV_RCVBUF;
+    offset = PostSend(IBV_WR_SEND, buf, sending_len, mem.GetLKey(), nullptr, 0);
+    if (offset != sending_len) {
+      // error
+      return 0;
+    }
 
-      std::memset(&sge, 0, sizeof(struct ibv_sge));
-      sge.addr = reinterpret_cast<uintptr_t>(buf + offset);
-      sge.length = static_cast<uint32_t>(sending_len);
-      sge.lkey = mem.GetLKey();
-
-      std::memset(&wr, 0, sizeof(struct ibv_send_wr));
-      wr.sg_list = &sge;
-      wr.num_sge = 1;
-      wr.opcode = IBV_WR_SEND;
-      if (sending_len <= max_inline_data_) {
-        wr.send_flags |= IBV_SEND_INLINE;
-      }
-
-      if (!PostSend(&wr)) {
-        // failed to send
-        break;
-      }
-
-      offset += sending_len;
+    if (len > offset) {
+      sending_len = len - offset;
+      offset += PostSend(IBV_WR_SEND, buf + offset, sending_len, mem.GetLKey(), nullptr, 0);
     }
 
     return offset;
   }
 
   size_t Recv(LocalMemoryRegion &mem) const override {
-    return Recv(mem.GetAddr(), mem.GetLength());
+    size_t offset = 0;
+    struct ibv_sge sge;
+    struct ibv_recv_wr wr, *bad_wr;
+    auto buf = mem.GetAddr();
+    auto len = mem.GetLength();
+
+    if (len > IBV_RCVBUF) {
+      // post a recv request for the body part of the message in advance.
+      std::memset(&sge, 0, sizeof(sge));
+      sge.addr = reinterpret_cast<uintptr_t>(buf + IBV_RCVBUF);
+      sge.length = static_cast<uint32_t>(len - IBV_RCVBUF);
+      sge.lkey = mem.GetLKey();
+
+      std::memset(&wr, 0, sizeof(wr));
+      wr.sg_list = &sge;
+      wr.num_sge = 1;
+
+      ibv_post_recv(id_->qp, &wr, &bad_wr);
+    }
+
+    // refill a recv request for a header.
+    ibv_post_recv(id_->qp, const_cast<struct ibv_recv_wr *>(recv_buf_.GetWorkRequestPtr()), &bad_wr);
+
+    // receive the header part.
+    if (!PollCQ(id_->recv_cq)) {
+      // error
+      return offset;
+    }
+
+    if (len > IBV_RCVBUF) {
+      // receive the body part.
+      if (!PollCQ(id_->recv_cq)) {
+        // error
+        return offset;
+      }
+      offset += (len - IBV_RCVBUF);
+    }
+
+    // copy the received header part to the user buffer.
+    offset += recv_buf_.Read(buf, len < IBV_RCVBUF ? len : IBV_RCVBUF);
+
+    return offset;
   }
 
   size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
@@ -145,46 +156,13 @@ class RDMAChannel : public Channel {
   }
 
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
-    struct ibv_sge sge;
-    struct ibv_send_wr wr, *bad_wr;
-    auto len = local_mem.GetLength();
-
-    std::memset(&sge, 0, sizeof(struct ibv_sge));
-    sge.addr = reinterpret_cast<uintptr_t>(local_mem.GetAddr());
-    sge.length = static_cast<uint32_t>(len);
-    sge.lkey = local_mem.GetLKey();
-
-    std::memset(&wr, 0, sizeof(struct ibv_send_wr));
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
-    wr.opcode = IBV_WR_RDMA_WRITE;
-    wr.wr.rdma.rkey = remote_mem.GetRKey();
-    wr.wr.rdma.remote_addr = reinterpret_cast<uintptr_t>(remote_mem.GetAddr());
-    if (len <= max_inline_data_) {
-      wr.send_flags |= IBV_SEND_INLINE;
-    }
-
-    return PostSend(&wr) ? local_mem.GetLength() : 0;
+    return PostSend(IBV_WR_RDMA_WRITE, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
+                    remote_mem.GetAddr(), remote_mem.GetRKey());
   }
 
   size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
-    struct ibv_sge sge;
-    struct ibv_send_wr wr, *bad_wr;
-    auto len = local_mem.GetLength();
-
-    std::memset(&sge, 0, sizeof(struct ibv_sge));
-    sge.addr = reinterpret_cast<uintptr_t>(local_mem.GetAddr());
-    sge.length = static_cast<uint32_t>(len);
-    sge.lkey = local_mem.GetLKey();
-
-    std::memset(&wr, 0, sizeof(struct ibv_send_wr));
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
-    wr.opcode = IBV_WR_RDMA_READ;
-    wr.wr.rdma.rkey = remote_mem.GetRKey();
-    wr.wr.rdma.remote_addr = reinterpret_cast<uintptr_t>(remote_mem.GetAddr());
-
-    return PostSend(&wr) ? local_mem.GetLength() : 0;
+    return PostSend(IBV_WR_RDMA_READ, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
+                    remote_mem.GetAddr(), remote_mem.GetRKey());
   }
 
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
@@ -229,7 +207,7 @@ class RDMAChannel : public Channel {
   }
 
  private:
-  //
+  // Pre-allocated buffer for Recv operations.
   class RecvBuffer {
    public:
 
@@ -243,13 +221,6 @@ class RDMAChannel : public Channel {
       std::memset(&wr_, 0, sizeof(struct ibv_recv_wr));
       wr_.sg_list = &sge_;
       wr_.num_sge = 1;
-    }
-
-    size_t Write(const void *addr, size_t len) const {
-      auto cpylen = (len > buflen_) ? buflen_ : len;
-      std::memcpy(buf_.get(), addr, cpylen);
-
-      return cpylen;
     }
 
     size_t Read(void *addr, size_t len) const {
@@ -280,15 +251,33 @@ class RDMAChannel : public Channel {
   uint32_t max_recv_sge_;
   RecvBuffer recv_buf_;
 
-  bool PostSend(struct ibv_send_wr *wr) const {
-    struct ibv_send_wr *bad_wr;
+  size_t PostSend(enum ibv_wr_opcode opcode, void *buf, size_t len, uint32_t lkey, void *raddr, uint32_t rkey) const {
+    struct ibv_sge sge;
+    struct ibv_send_wr wr, *bad_wr;
 
-    if (ibv_post_send(id_->qp, wr, &bad_wr)) {
-      // error
-      return false;
+    std::memset(&sge, 0, sizeof(sge));
+    sge.addr = reinterpret_cast<uintptr_t>(buf);
+    sge.length = static_cast<uint32_t>(len);
+    sge.lkey = lkey;
+
+    std::memset(&wr, 0, sizeof(wr));
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+    wr.opcode = opcode;
+    if (opcode == IBV_WR_RDMA_READ || opcode == IBV_WR_RDMA_WRITE) {
+      wr.wr.rdma.rkey = rkey;
+      wr.wr.rdma.remote_addr = reinterpret_cast<uintptr_t>(raddr);
+    }
+    if ((opcode == IBV_WR_SEND || opcode == IBV_WR_RDMA_WRITE) && len <= max_inline_data_) {
+      wr.send_flags |= IBV_SEND_INLINE;
     }
 
-    return PollCQ(id_->send_cq);
+    if (ibv_post_send(id_->qp, &wr, &bad_wr)) {
+      // error
+      return 0;
+    }
+
+    return PollCQ(id_->send_cq) ? len : 0;
   }
 
   bool PollCQ(struct ibv_cq *cq) const {

@@ -32,7 +32,7 @@ class RDMACommon {
     init_attr.cap.max_send_wr = 1;
     // to make Receive WR constantly available in QP,
     // max_recv_wr must be bigger than 2
-    init_attr.cap.max_recv_wr = 2;
+    init_attr.cap.max_recv_wr = 4;
     init_attr.sq_sig_all = 1;
     // TODO: max_inline_data should be user-configurable
     init_attr.cap.max_inline_data = 16;
