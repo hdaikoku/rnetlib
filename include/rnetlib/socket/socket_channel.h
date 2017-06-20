@@ -158,6 +158,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     for (const auto &mr : vec) {
       send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
     }
+    evloop.AddHandler(*this);
     return vec.size();
   }
 
@@ -165,6 +166,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     for (const auto &mr : vec) {
       recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});
     }
+    evloop.AddHandler(*this);
     return vec.size();
   }
 
