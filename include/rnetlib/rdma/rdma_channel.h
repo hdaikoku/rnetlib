@@ -165,6 +165,16 @@ class RDMAChannel : public Channel {
     return len;
   }
 
+  size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+    // TODO: implement this.
+    return 0;
+  }
+
+  size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+    // TODO: implement this.
+    return 0;
+  }
+
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
     return PostSend(IBV_WR_RDMA_WRITE, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
                     remote_mem.GetAddr(), remote_mem.GetRKey());

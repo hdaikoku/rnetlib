@@ -39,6 +39,10 @@ class Channel {
 
   virtual size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const = 0;
 
+  virtual size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) = 0;
+
+  virtual size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) = 0;
+
   virtual size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const = 0;
 
   virtual size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const = 0;

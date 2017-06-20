@@ -5,7 +5,6 @@
 #ifndef RNETLIB_SOCKET_SOCKET_CHANNEL_H
 #define RNETLIB_SOCKET_SOCKET_CHANNEL_H
 
-#include <deque>
 #include <limits.h>
 #include <netdb.h>
 #include <string>
@@ -77,14 +76,14 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    isend_ctxs_.push_back({buf, len, 0});
+    send_iov_.push_back({buf, len});
     evloop.AddHandler(*this);
     return len;
   }
 
   size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    irecv_ctxs_.push_back({buf, len, 0});
+    recv_iov_.push_back({buf, len});
     evloop.AddHandler(*this);
     return len;
   }
@@ -155,6 +154,20 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return total_recvd;
   }
 
+  size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+    for (const auto &mr : vec) {
+      send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+    }
+    return vec.size();
+  }
+
+  size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+    for (const auto &mr : vec) {
+      recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+    }
+    return vec.size();
+  }
+
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
     return Send(local_mem.GetAddr(), local_mem.GetLength());
   }
@@ -177,29 +190,19 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
-      while (isend_ctxs_.size() > 0) {
-        auto &ctx = isend_ctxs_.front();
-        ctx.offset += SendSome(ctx);
-        if (ctx.offset == ctx.len) {
-          isend_ctxs_.pop_front();
-        } else {
-          break;
-        }
+      auto offset = SendSome(send_iov_.data(), send_iov_.size());
+      if (offset > 0) {
+        send_iov_.erase(send_iov_.begin(), send_iov_.begin() + offset);
       }
     }
     if (event_type & POLLIN) {
-      while (irecv_ctxs_.size() > 0) {
-        auto &ctx = irecv_ctxs_.front();
-        ctx.offset += RecvSome(ctx);
-        if (ctx.offset == ctx.len) {
-          irecv_ctxs_.pop_front();
-        } else {
-          break;
-        }
+      auto offset = RecvSome(recv_iov_.data(), recv_iov_.size());
+      if (offset > 0) {
+        recv_iov_.erase(recv_iov_.begin(), recv_iov_.begin() + offset);
       }
     }
 
-    return (isend_ctxs_.empty() && irecv_ctxs_.empty()) ? MAY_BE_REMOVED : 0;
+    return (send_iov_.empty() && recv_iov_.empty()) ? MAY_BE_REMOVED : 0;
   }
 
   int OnError(int error_type) override {
@@ -213,10 +216,10 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   short GetEventType() const override {
     short type = 0;
 
-    if (isend_ctxs_.size() > 0) {
+    if (send_iov_.size() > 0) {
       type |= POLLOUT;
     }
-    if (irecv_ctxs_.size() > 0) {
+    if (recv_iov_.size() > 0) {
       type |= POLLIN;
     }
 
@@ -224,59 +227,65 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
  private:
-  struct non_blocking_context {
-    void *buf;
-    size_t len;
-    size_t offset;
-  };
-
   std::string peer_addr_;
   uint16_t peer_port_;
-  std::deque<struct non_blocking_context> isend_ctxs_;
-  std::deque<struct non_blocking_context> irecv_ctxs_;
+  std::vector<struct iovec> send_iov_;
+  std::vector<struct iovec> recv_iov_;
 
-  size_t SendSome(struct non_blocking_context &ctx) const {
-    size_t len = ctx.len;
-    size_t offset = ctx.offset;
+  size_t SendSome(struct iovec *iov, size_t iovcnt) const {
+    size_t offset = 0;
 
-    while (offset < len) {
-      auto sent = S_SEND(sock_fd_, static_cast<char *>(ctx.buf) + offset, len - offset, 0);
-      if (sent < 0) {
+    while (iovcnt > offset) {
+      auto sent = S_WRITEV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
+      if (sent > 0) {
+        while (offset < iovcnt) {
+          if (iov[offset].iov_len > sent) {
+            iov[offset].iov_base = static_cast<char *>(iov[offset].iov_base) + sent;
+            iov[offset].iov_len -= sent;
+            break;
+          }
+          sent -= iov[offset].iov_len;
+          offset++;
+        }
+      } else {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-          // send buffer is full
+          // SNDBUF is full.
           break;
         }
-        // error
+        // TODO: handle error
         return 0;
-      } else {
-        offset += sent;
       }
     }
 
-    return (offset - ctx.offset);
+    return offset;
   }
 
-  size_t RecvSome(struct non_blocking_context &ctx) const {
-    size_t len = ctx.len;
-    size_t offset = ctx.offset;
+  size_t RecvSome(struct iovec *iov, size_t iovcnt) const {
+    size_t offset = 0;
 
-    while (offset < len) {
-      auto recvd = S_RECV(sock_fd_, static_cast<char *>(ctx.buf) + offset, len - offset, 0);
-      if (recvd < 0) {
+    while (iovcnt > offset) {
+      auto recvd = S_READV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
+      if (recvd > 0) {
+        while (offset < iovcnt) {
+          if (iov[offset].iov_len > recvd) {
+            iov[offset].iov_base = static_cast<char *>(iov[offset].iov_base) + recvd;
+            iov[offset].iov_len -= recvd;
+            break;
+          }
+          recvd -= iov[offset].iov_len;
+          offset++;
+        }
+      } else {
         if (errno == EWOULDBLOCK || errno == EAGAIN) {
-          // no more data to receive
+          // RCVBUF is empty.
           break;
         }
-        // something went wrong
-        return 0;
-      } else if (recvd == 0) {
-        // connection closed by client
+        // TODO: handle error
         return 0;
       }
-      offset += recvd;
     }
 
-    return (offset - ctx.offset);
+    return offset;
   }
 
 };
