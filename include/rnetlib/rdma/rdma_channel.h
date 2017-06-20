@@ -130,7 +130,7 @@ class RDMAChannel : public Channel {
     return 0;
   }
 
-  size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+  size_t SendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
     // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
     size_t offset = 0, len = 0;
     for (const auto &mr : vec) {
@@ -145,7 +145,7 @@ class RDMAChannel : public Channel {
     return Send(buf.get(), len);
   }
 
-  size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+  size_t RecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
     // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
     size_t offset = 0, len = 0;
     for (const auto &mr : vec) {

@@ -27,14 +27,14 @@ int main(int argc, const char **argv) {
     mrs.emplace_back(channel->RegisterMemory(&msgs[i], sizeof(msgs[i]), MR_LOCAL_READ | MR_LOCAL_WRITE));
   }
 
-  channel->RecvSG(mrs);
+  channel->RecvVec(mrs);
 
   for (int i = 0; i < num_sgs; i++) {
     std::cout << "msgs[" << i << "]: " << msgs[i] << std::endl;
     msgs[i] *= 2;
   }
 
-  channel->SendSG(mrs);
+  channel->SendVec(mrs);
 
   return 0;
 }

@@ -88,7 +88,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return len;
   }
 
-  size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+  size_t SendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
     struct iovec iov[mrs.size()];
     int iovcnt = 0, offset = 0;
     size_t total_sent = 0;
@@ -121,7 +121,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return total_sent;
   }
 
-  size_t RecvSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+  size_t RecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
     struct iovec iov[mrs.size()];
     int iovcnt = 0, offset = 0;
     size_t total_recvd = 0;
