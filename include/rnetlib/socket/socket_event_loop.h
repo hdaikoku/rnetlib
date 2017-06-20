@@ -29,7 +29,9 @@ class SocketEventLoop : public EventLoop {
 
   void AddHandler(EventHandler &handler) override {
     auto sock_fd = *(reinterpret_cast<int *>(handler.GetHandlerID()));
-    handler_refs_.emplace(std::make_pair(sock_fd, std::ref(handler)));
+    if (handler_refs_.find(sock_fd) == handler_refs_.end()) {
+      handler_refs_.emplace(std::make_pair(sock_fd, std::ref(handler)));
+    }
   }
 
   int Run(int timeout) override {

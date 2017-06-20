@@ -120,6 +120,16 @@ class RDMAChannel : public Channel {
     return offset;
   }
 
+  size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
+    // TODO: implement this.
+    return 0;
+  }
+
+  size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
+    // TODO: implement this.
+    return 0;
+  }
+
   size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
     // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
     size_t offset = 0, len = 0;

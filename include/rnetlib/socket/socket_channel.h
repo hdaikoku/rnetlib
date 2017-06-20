@@ -5,6 +5,7 @@
 #ifndef RNETLIB_SOCKET_SOCKET_CHANNEL_H
 #define RNETLIB_SOCKET_SOCKET_CHANNEL_H
 
+#include <deque>
 #include <limits.h>
 #include <netdb.h>
 #include <string>
@@ -13,6 +14,7 @@
 #include <sys/socket.h>
 
 #include "rnetlib/channel.h"
+#include "rnetlib/event_handler.h"
 #include "rnetlib/socket/socket_common.h"
 #include "rnetlib/socket/socket_local_memory_region.h"
 
@@ -22,7 +24,7 @@
 
 namespace rnetlib {
 namespace socket {
-class SocketChannel : public Channel, public SocketCommon {
+class SocketChannel : public Channel, public EventHandler, public SocketCommon {
  public:
 
   SocketChannel() {}
@@ -71,6 +73,20 @@ class SocketChannel : public Channel, public SocketCommon {
 
   size_t Recv(LocalMemoryRegion &mem) const override {
     return Recv(mem.GetAddr(), mem.GetLength());
+  }
+
+  size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
+    // FIXME: check if this sock_fd is set to non-blocking mode.
+    isend_ctxs_.push_back({buf, len, 0});
+    evloop.AddHandler(*this);
+    return len;
+  }
+
+  size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
+    // FIXME: check if this sock_fd is set to non-blocking mode.
+    irecv_ctxs_.push_back({buf, len, 0});
+    evloop.AddHandler(*this);
+    return len;
   }
 
   size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
@@ -159,9 +175,109 @@ class SocketChannel : public Channel, public SocketCommon {
     return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(nullptr, 0, 0));;
   }
 
+  int OnEvent(int event_type, void *arg) override {
+    if (event_type & POLLOUT) {
+      while (isend_ctxs_.size() > 0) {
+        auto &ctx = isend_ctxs_.front();
+        ctx.offset += SendSome(ctx);
+        if (ctx.offset == ctx.len) {
+          isend_ctxs_.pop_front();
+        } else {
+          break;
+        }
+      }
+    }
+    if (event_type & POLLIN) {
+      while (irecv_ctxs_.size() > 0) {
+        auto &ctx = irecv_ctxs_.front();
+        ctx.offset += RecvSome(ctx);
+        if (ctx.offset == ctx.len) {
+          irecv_ctxs_.pop_front();
+        } else {
+          break;
+        }
+      }
+    }
+
+    return (isend_ctxs_.empty() && irecv_ctxs_.empty()) ? MAY_BE_REMOVED : 0;
+  }
+
+  int OnError(int error_type) override {
+    return MAY_BE_REMOVED;
+  }
+
+  void *GetHandlerID() const override {
+    return const_cast<int *>(&sock_fd_);
+  }
+
+  short GetEventType() const override {
+    short type = 0;
+
+    if (isend_ctxs_.size() > 0) {
+      type |= POLLOUT;
+    }
+    if (irecv_ctxs_.size() > 0) {
+      type |= POLLIN;
+    }
+
+    return type;
+  }
+
  private:
+  struct non_blocking_context {
+    void *buf;
+    size_t len;
+    size_t offset;
+  };
+
   std::string peer_addr_;
   uint16_t peer_port_;
+  std::deque<struct non_blocking_context> isend_ctxs_;
+  std::deque<struct non_blocking_context> irecv_ctxs_;
+
+  size_t SendSome(struct non_blocking_context &ctx) const {
+    size_t len = ctx.len;
+    size_t offset = ctx.offset;
+
+    while (offset < len) {
+      auto sent = S_SEND(sock_fd_, static_cast<char *>(ctx.buf) + offset, len - offset, 0);
+      if (sent < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          // send buffer is full
+          break;
+        }
+        // error
+        return 0;
+      } else {
+        offset += sent;
+      }
+    }
+
+    return (offset - ctx.offset);
+  }
+
+  size_t RecvSome(struct non_blocking_context &ctx) const {
+    size_t len = ctx.len;
+    size_t offset = ctx.offset;
+
+    while (offset < len) {
+      auto recvd = S_RECV(sock_fd_, static_cast<char *>(ctx.buf) + offset, len - offset, 0);
+      if (recvd < 0) {
+        if (errno == EWOULDBLOCK || errno == EAGAIN) {
+          // no more data to receive
+          break;
+        }
+        // something went wrong
+        return 0;
+      } else if (recvd == 0) {
+        // connection closed by client
+        return 0;
+      }
+      offset += recvd;
+    }
+
+    return (offset - ctx.offset);
+  }
 
 };
 }

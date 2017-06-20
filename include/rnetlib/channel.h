@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "rnetlib/event_loop.h"
 #include "rnetlib/local_memory_region.h"
 #include "rnetlib/remote_memory_region.h"
 
@@ -29,6 +30,10 @@ class Channel {
   virtual size_t Send(LocalMemoryRegion &mem) const = 0;
 
   virtual size_t Recv(LocalMemoryRegion &mem) const = 0;
+
+  virtual size_t ISend(void *buf, size_t len, EventLoop &evloop) = 0;
+
+  virtual size_t IRecv(void *buf, size_t len, EventLoop &evloop) = 0;
 
   virtual size_t SendSG(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const = 0;
 
