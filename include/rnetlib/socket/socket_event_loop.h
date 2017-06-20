@@ -34,7 +34,7 @@ class SocketEventLoop : public EventLoop {
     }
   }
 
-  int Run(int timeout) override {
+  int WaitAll(int timeout_millis) override {
     std::vector<struct pollfd> fds;
 
     while (!handler_refs_.empty()) {
@@ -45,7 +45,7 @@ class SocketEventLoop : public EventLoop {
       }
       nfds_t num_fds = static_cast<nfds_t>(fds.size());
 
-      auto rc = S_POLL(fds.data(), num_fds, timeout);
+      auto rc = S_POLL(fds.data(), num_fds, timeout_millis);
       if (rc < 0) {
         // miscellaneous errors
         // TODO: log error

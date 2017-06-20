@@ -36,7 +36,7 @@ class RDMAEventLoop : public EventLoop {
     handlers_.emplace_back(std::ref(handler));
   }
 
-  int Run(int timeout) override {
+  int WaitAll(int timeout_millis) override {
     struct rdma_cm_event *ev;
 
     while (handlers_.size() > 0) {

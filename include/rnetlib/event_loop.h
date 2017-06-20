@@ -18,7 +18,7 @@ class EventLoop {
 
   virtual void AddHandler(EventHandler &handler) = 0;
 
-  virtual int Run(int timeout) = 0;
+  virtual int WaitAll(int timeout_millis) = 0;
 
 };
 }

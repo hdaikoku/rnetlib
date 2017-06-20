@@ -20,7 +20,7 @@ void do_pingpong(Channel &channel, size_t msg_len) {
     channel.IRecv(msg.get(), msg_len, *evloop);
     channel.ISend(msg.get(), msg_len, *evloop);
   }
-  evloop->Run(300);
+  evloop->WaitAll(300);
   auto end = std::chrono::steady_clock::now();
 
   auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
