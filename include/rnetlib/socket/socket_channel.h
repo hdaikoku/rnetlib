@@ -26,7 +26,7 @@ namespace socket {
 class SocketChannel : public Channel, public EventHandler, public SocketCommon {
  public:
 
-  SocketChannel() {}
+  SocketChannel() = default;
 
   SocketChannel(int sock_fd) : SocketCommon(sock_fd) {}
 
@@ -35,35 +35,19 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t Send(void *buf, size_t len) const override {
-    size_t offset = 0;
+    struct iovec iov;
+    iov.iov_base = buf;
+    iov.iov_len = len;
 
-    while (offset < len) {
-      auto sent = S_WRITE(sock_fd_, (char *) buf + offset, len - offset);
-      if (sent > 0) {
-        offset += sent;
-      } else {
-        // TODO: handle error
-        return 0;
-      }
-    }
-
-    return offset;
+    return (SendIOV(&iov, 1) == 1) ? len : 0;
   }
 
   size_t Recv(void *buf, size_t len) const override {
-    size_t offset = 0;
+    struct iovec iov;
+    iov.iov_base = buf;
+    iov.iov_len = len;
 
-    while (offset < len) {
-      auto recvd = S_READ(sock_fd_, (char *) buf + offset, len - offset);
-      if (recvd > 0) {
-        offset += recvd;
-      } else {
-        // TODO: handle error
-        return 0;
-      }
-    }
-
-    return offset;
+    return (RecvIOV(&iov, 1) == 1) ? len : 0;
   }
 
   size_t Send(LocalMemoryRegion &mem) const override {
@@ -89,72 +73,29 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t SendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
-    struct iovec iov[mrs.size()];
-    int iovcnt = 0, offset = 0;
-    size_t total_sent = 0;
-
+    std::vector<struct iovec> iov;
+    size_t total_len = 0;
     for (const auto &mr : mrs) {
-      iov[iovcnt].iov_base = mr->GetAddr();
-      iov[iovcnt].iov_len = mr->GetLength();
-      iovcnt++;
+      total_len += mr->GetLength();
+      iov.push_back({mr->GetAddr(), mr->GetLength()});
     }
 
-    while (iovcnt > offset) {
-      auto sent = S_WRITEV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
-      if (sent > 0) {
-        total_sent += sent;
-        while (offset < iovcnt) {
-          if (iov[offset].iov_len > sent) {
-            iov[offset].iov_base = static_cast<char *>(iov[offset].iov_base) + sent;
-            iov[offset].iov_len -= sent;
-            break;
-          }
-          sent -= iov[offset].iov_len;
-          offset++;
-        }
-      } else {
-        // TODO: handle error
-        return 0;
-      }
-    }
-
-    return total_sent;
+    return (SendIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
   }
 
   size_t RecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
-    struct iovec iov[mrs.size()];
-    int iovcnt = 0, offset = 0;
-    size_t total_recvd = 0;
-
+    std::vector<struct iovec> iov;
+    size_t total_len = 0;
     for (const auto &mr : mrs) {
-      iov[iovcnt].iov_base = mr->GetAddr();
-      iov[iovcnt].iov_len = mr->GetLength();
-      iovcnt++;
+      total_len += mr->GetLength();
+      iov.push_back({mr->GetAddr(), mr->GetLength()});
     }
 
-    while (iovcnt > offset) {
-      auto recvd = S_READV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
-      if (recvd > 0) {
-        total_recvd += recvd;
-        while (offset < iovcnt) {
-          if (iov[offset].iov_len > recvd) {
-            iov[offset].iov_base = static_cast<char *>(iov[offset].iov_base) + recvd;
-            iov[offset].iov_len -= recvd;
-            break;
-          }
-          recvd -= iov[offset].iov_len;
-          offset++;
-        }
-      } else {
-        // TODO: handle error
-        return 0;
-      }
-    }
-
-    return total_recvd;
+    return (RecvIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
   }
 
   size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+    // FIXME: check if this sock_fd is set to non-blocking mode.
     for (const auto &mr : vec) {
       send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
     }
@@ -163,6 +104,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+    // FIXME: check if this sock_fd is set to non-blocking mode.
     for (const auto &mr : vec) {
       recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});
     }
@@ -192,13 +134,13 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
-      auto offset = SendSome(send_iov_.data(), send_iov_.size());
+      auto offset = SendIOV(send_iov_.data(), send_iov_.size());
       if (offset > 0) {
         send_iov_.erase(send_iov_.begin(), send_iov_.begin() + offset);
       }
     }
     if (event_type & POLLIN) {
-      auto offset = RecvSome(recv_iov_.data(), recv_iov_.size());
+      auto offset = RecvIOV(recv_iov_.data(), recv_iov_.size());
       if (offset > 0) {
         recv_iov_.erase(recv_iov_.begin(), recv_iov_.begin() + offset);
       }
@@ -234,7 +176,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   std::vector<struct iovec> send_iov_;
   std::vector<struct iovec> recv_iov_;
 
-  size_t SendSome(struct iovec *iov, size_t iovcnt) const {
+  size_t SendIOV(struct iovec *iov, size_t iovcnt) const {
     size_t offset = 0;
 
     while (iovcnt > offset) {
@@ -262,7 +204,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return offset;
   }
 
-  size_t RecvSome(struct iovec *iov, size_t iovcnt) const {
+  size_t RecvIOV(struct iovec *iov, size_t iovcnt) const {
     size_t offset = 0;
 
     while (iovcnt > offset) {
