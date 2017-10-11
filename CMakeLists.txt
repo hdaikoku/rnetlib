@@ -9,4 +9,6 @@ option(USE_RDMA "Use RDMA" OFF)
 # output path for runtime programs
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
+set(RNETLIB_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/rnetlib")
+
 add_subdirectory(examples)

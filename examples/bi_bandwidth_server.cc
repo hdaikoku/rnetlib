@@ -1,9 +1,6 @@
-//
-// Created by Harunobu Daikoku on 2016/08/01.
-//
-
 #include <chrono>
 #include <iostream>
+
 #include <rnetlib/rnetlib.h>
 
 using namespace rnetlib;

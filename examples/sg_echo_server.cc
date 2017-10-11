@@ -1,8 +1,5 @@
-//
-// Created by Harunobu Daikoku on 2017/06/15.
-//
-
 #include <iostream>
+
 #include <rnetlib/rnetlib.h>
 
 using namespace rnetlib;
