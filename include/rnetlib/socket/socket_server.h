@@ -11,20 +11,22 @@
 
 #ifdef USE_RDMA
 // rsocket-specific functions
-#define S_BIND(s, a, l)   rbind(s, a, l)
-#define S_LISTEN(s, b)    rlisten(s, b)
-#define S_ACCEPT(s, a, l) raccept(s, a, l)
-#define S_SRC_ADDR(a)     a->ai_src_addr
-#define S_SRC_ADDRLEN(a)  a->ai_src_len
-#define S_PASSIVE         RAI_PASSIVE
+#define S_ACCEPT(s, a, l)       raccept(s, a, l)
+#define S_BIND(s, a, l)         rbind(s, a, l)
+#define S_GETSOCKNAME(s, n, l)  rgetsockname(s, n, l)
+#define S_LISTEN(s, b)          rlisten(s, b)
+#define S_PASSIVE               RAI_PASSIVE
+#define S_SRC_ADDR(a)           a->ai_src_addr
+#define S_SRC_ADDRLEN(a)        a->ai_src_len
 #else
 // BSD socket-specific functions
-#define S_BIND(s, a, l)   bind(s, a, l)
-#define S_LISTEN(s, b)    listen(s, b)
-#define S_ACCEPT(s, a, l) accept(s, a, l)
-#define S_SRC_ADDR(a)     a->ai_addr
-#define S_SRC_ADDRLEN(a)  a->ai_addrlen
-#define S_PASSIVE         AI_PASSIVE
+#define S_ACCEPT(s, a, l)       accept(s, a, l)
+#define S_BIND(s, a, l)         bind(s, a, l)
+#define S_GETSOCKNAME(s, n, l)  getsockname(s, n, l)
+#define S_LISTEN(s, b)          listen(s, b)
+#define S_PASSIVE               AI_PASSIVE
+#define S_SRC_ADDR(a)           a->ai_addr
+#define S_SRC_ADDRLEN(a)        a->ai_addrlen
 #endif // USE_RDMA
 
 namespace rnetlib {
@@ -79,6 +81,18 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
     loop.AddHandler(*this);
 
     return promise_.get_future();
+  }
+
+  uint16_t GetListenPort() const override {
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    std::memset(&addr, 0, len);
+
+    if (S_GETSOCKNAME(sock_fd_, reinterpret_cast<struct sockaddr *>(&addr), &len)) {
+      return 0;
+    }
+
+    return ntohs(addr.sin_port);
   }
 
   int OnEvent(int event_type, void *arg) override {

@@ -19,6 +19,8 @@ class Server {
 
   virtual std::future<Channel::Ptr> Accept(EventLoop &loop,
                                            std::function<void(rnetlib::Channel &)> on_established = nullptr) = 0;
+
+  virtual uint16_t GetListenPort() const = 0;
 };
 
 } // namespace rnetlib

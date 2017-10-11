@@ -13,11 +13,12 @@ int main(int argc, const char **argv) {
   // FIXME: handle errors
   auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::SOCKET);
   server->Listen();
+  std::cout << "EchoServer: listening on port " << server->GetListenPort() << std::endl;
   auto channel = server->Accept();
 
   int msg;
   channel->Recv(&msg, sizeof(msg));
-  std::cout << "SERVER: received " << msg << std::endl;
+  std::cout << "EchoServer: received " << msg << std::endl;
 
   channel->Send(&msg, sizeof(msg));
 

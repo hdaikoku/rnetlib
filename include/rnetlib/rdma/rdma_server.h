@@ -56,6 +56,10 @@ class RDMAServer : public Server, public EventHandler {
     return promise_.get_future();
   }
 
+  uint16_t GetListenPort() const override {
+    return ntohs(rdma_get_src_port(listen_id_.get()));
+  }
+
   int OnEvent(int event_type, void *arg) override {
     if (event_type == RDMA_CM_EVENT_CONNECT_REQUEST) {
       // got a connect request.

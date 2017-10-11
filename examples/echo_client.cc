@@ -18,7 +18,7 @@ int main(int argc, const char **argv) {
   channel->Send(&msg, sizeof(msg));
 
   channel->Recv(&msg, sizeof(msg));
-  std::cout << "CLIENT: received " << msg << std::endl;
+  std::cout << "EchoClient: received " << msg << std::endl;
 
   return 0;
 }
