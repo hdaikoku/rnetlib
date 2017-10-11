@@ -186,22 +186,27 @@ class VerbsChannel : public Channel {
     return VerbsLocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
 
-  void SynRemoteMemoryRegion(const LocalMemoryRegion &mem) const override {
-    RemoteMemoryRegion rmr(mem);
+  void SynRemoteMemoryRegion(const LocalMemoryRegion &lmr) const override {
+    RemoteMemoryRegion rmr(lmr);
 
     Send(&rmr, sizeof(rmr));
   }
 
-  std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const override {
-    std::unique_ptr<RemoteMemoryRegion> rmr(new RemoteMemoryRegion);
-    auto len = sizeof(RemoteMemoryRegion);
+  void AckRemoteMemoryRegion(RemoteMemoryRegion *rmr) const override { Recv(rmr, sizeof(RemoteMemoryRegion)); }
 
-    // receive memory region info from the peer node
-    if (Recv(rmr.get(), len) != len) {
-      return nullptr;
+  void SynRemoteMemoryRegionV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+    std::vector<RemoteMemoryRegion> rmrs;
+    rmrs.reserve(vec.size());
+
+    for (const auto &v : vec) {
+      rmrs.emplace_back(*v);
     }
 
-    return std::move(rmr);
+    Send(rmrs.data(), sizeof(RemoteMemoryRegion) * rmrs.size());
+  }
+
+  void AckRemoteMemoryRegionV(std::vector<RemoteMemoryRegion> *vec) const override {
+    Recv(vec->data(), sizeof(RemoteMemoryRegion) * vec->size());
   }
 
   const struct rdma_cm_id *GetIDPtr() const {

@@ -1,7 +1,6 @@
 #ifndef RNETLIB_CHANNEL_H_
 #define RNETLIB_CHANNEL_H_
 
-#include <memory>
 #include <vector>
 
 #include "rnetlib/event_loop.h"
@@ -30,23 +29,27 @@ class Channel {
 
   virtual size_t IRecv(void *buf, size_t len, EventLoop &evloop) = 0;
 
-  virtual size_t SendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const = 0;
+  virtual size_t SendVec(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
 
-  virtual size_t RecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const = 0;
+  virtual size_t RecvVec(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
 
-  virtual size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) = 0;
+  virtual size_t ISendVec(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
 
-  virtual size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) = 0;
+  virtual size_t IRecvVec(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
 
   virtual size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const = 0;
 
   virtual size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const = 0;
 
-  virtual std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const = 0;
+  virtual LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const = 0;
 
-  virtual void SynRemoteMemoryRegion(const LocalMemoryRegion &mem) const = 0;
+  virtual void SynRemoteMemoryRegion(const LocalMemoryRegion &lmr) const = 0;
 
-  virtual std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const = 0;
+  virtual void AckRemoteMemoryRegion(RemoteMemoryRegion *rmr) const = 0;
+
+  virtual void SynRemoteMemoryRegionV(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
+
+  virtual void AckRemoteMemoryRegionV(std::vector<RemoteMemoryRegion> *vec) const = 0;
 };
 
 } // namespace rnetlib

@@ -1,6 +1,8 @@
 #ifndef RNETLIB_LOCAL_MEMORY_REGION_H_
 #define RNETLIB_LOCAL_MEMORY_REGION_H_
 
+#include <memory>
+
 enum MRType {
   MR_LOCAL_READ   = 0,
   MR_LOCAL_WRITE  = (1 << 0),
@@ -12,6 +14,8 @@ namespace rnetlib {
 
 class LocalMemoryRegion {
  public:
+  using ptr = std::unique_ptr<LocalMemoryRegion>;
+
   virtual ~LocalMemoryRegion() = default;
 
   virtual void *GetAddr() const = 0;
