@@ -29,7 +29,7 @@ set(SOURCE_SERVER
         "${RNETLIB_INCLUDE_DIR}/server.h"
         "${RNETLIB_INCLUDE_DIR}/socket/socket_server.h")
 
-if (USE_RDMA)
+if (RNETLIB_USE_RDMA)
     set(SOURCE_COMMON ${SOURCE_COMMON}
             "${RNETLIB_INCLUDE_DIR}/rdma/rdma_channel.h"
             "${RNETLIB_INCLUDE_DIR}/rdma/rdma_common.h"
@@ -41,7 +41,7 @@ if (USE_RDMA)
 
     set(SOURCE_SERVER ${SOURCE_SERVER}
             "${RNETLIB_INCLUDE_DIR}/rdma/rdma_server.h")
-endif (USE_RDMA)
+endif (RNETLIB_USE_RDMA)
 
 add_executable(bandwidth_client bandwidth_client.cc ${SOURCE_COMMON} ${SOURCE_CLIENT})
 add_executable(bandwidth_server bandwidth_server.cc ${SOURCE_COMMON} ${SOURCE_SERVER})
@@ -54,8 +54,8 @@ add_executable(sg_bandwidth_server sg_bandwidth_server.cc ${SOURCE_COMMON} ${SOU
 add_executable(sg_echo_client sg_echo_client.cc ${SOURCE_COMMON} ${SOURCE_CLIENT})
 add_executable(sg_echo_server sg_echo_server.cc ${SOURCE_COMMON} ${SOURCE_SERVER})
 
-if (USE_RDMA)
-    add_definitions(-DUSE_RDMA)
+if (RNETLIB_USE_RDMA)
+    add_definitions(-DRNETLIB_USE_RDMA)
     target_link_libraries(bandwidth_client rdmacm ibverbs)
     target_link_libraries(bandwidth_server rdmacm ibverbs)
     target_link_libraries(bi_bandwidth_client rdmacm ibverbs)
@@ -66,4 +66,4 @@ if (USE_RDMA)
     target_link_libraries(sg_bandwidth_server rdmacm ibverbs)
     target_link_libraries(sg_echo_client rdmacm ibverbs)
     target_link_libraries(sg_echo_server rdmacm ibverbs)
-endif (USE_RDMA)
+endif (RNETLIB_USE_RDMA)

@@ -9,7 +9,7 @@
 #include "rnetlib/client.h"
 #include "rnetlib/socket/socket_channel.h"
 
-#ifdef USE_RDMA
+#ifdef RNETLIB_USE_RDMA
 // rsocket-specific functions
 #include <rdma/rsocket.h>
 
@@ -21,7 +21,7 @@
 #define S_CONNECT(s, a, l)           connect(s, a, l)
 #define S_DST_ADDR(a)                a->ai_addr
 #define S_DST_ADDRLEN(a)             a->ai_addrlen
-#endif // USE_RDMA
+#endif // RNETLIB_USE_RDMA
 
 namespace rnetlib {
 namespace socket {

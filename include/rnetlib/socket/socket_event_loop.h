@@ -10,14 +10,14 @@
 
 #include "rnetlib/event_loop.h"
 
-#ifdef USE_RDMA
+#ifdef RNETLIB_USE_RDMA
 // rsocket-specific functions
 #include <rdma/rsocket.h>
 #define S_POLL(f, n, t)              rpoll(f, n, t)
 #else
 // BSD-socket specific functions
 #define S_POLL(f, n, t)              poll(f, n, t)
-#endif // USE_RDMA
+#endif // RNETLIB_USE_RDMA
 
 namespace rnetlib {
 namespace socket {
