@@ -1,22 +1,18 @@
 #ifndef RNETLIB_REMOTE_MEMORY_REGION_H_
 #define RNETLIB_REMOTE_MEMORY_REGION_H_
 
+#include "rnetlib/local_memory_region.h"
+
 namespace rnetlib {
 
-class RemoteMemoryRegion {
- public:
-  RemoteMemoryRegion(void *addr, uint32_t rkey, size_t length) : addr_(addr), rkey_(rkey), length_(length) {}
+struct RemoteMemoryRegion {
+  RemoteMemoryRegion() = default;
+  explicit RemoteMemoryRegion(const LocalMemoryRegion &lmr)
+      : addr(reinterpret_cast<uintptr_t>(lmr.GetAddr())), rkey(lmr.GetRKey()), length(lmr.GetLength()) {}
 
-  void *GetAddr() const { return addr_; }
-
-  uint32_t GetRKey() const { return rkey_; }
-
-  size_t GetLength() const { return length_; }
-
- private:
-  void *addr_;
-  uint32_t rkey_;
-  size_t length_;
+  uintptr_t addr;
+  uint32_t rkey;
+  size_t length;
 };
 
 } // namespace rnetlib

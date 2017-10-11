@@ -44,7 +44,7 @@ class Channel {
 
   virtual std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const = 0;
 
-  virtual void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const = 0;
+  virtual void SynRemoteMemoryRegion(const LocalMemoryRegion &mem) const = 0;
 
   virtual std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const = 0;
 };

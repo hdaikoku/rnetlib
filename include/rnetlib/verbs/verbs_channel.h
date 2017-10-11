@@ -174,49 +174,34 @@ class VerbsChannel : public Channel {
 
   size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
     return PostSend(IBV_WR_RDMA_WRITE, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
-                    remote_mem.GetAddr(), remote_mem.GetRKey());
+                    reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey);
   }
 
   size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
     return PostSend(IBV_WR_RDMA_READ, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
-                    remote_mem.GetAddr(), remote_mem.GetRKey());
+                    reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey);
   }
 
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
     return VerbsLocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
 
-  void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const override {
-    uint64_t addr = reinterpret_cast<uintptr_t>(mem.GetAddr());
-    uint32_t rkey = mem.GetRKey();
-    size_t length = mem.GetLength();
-    auto size = sizeof(addr) + sizeof(rkey) + sizeof(length);
+  void SynRemoteMemoryRegion(const LocalMemoryRegion &mem) const override {
+    RemoteMemoryRegion rmr(mem);
 
-    std::unique_ptr<char[]> serialized(new char[size]);
-    std::memcpy(serialized.get(), &addr, sizeof(addr));
-    std::memcpy(serialized.get() + sizeof(addr), &rkey, sizeof(rkey));
-    std::memcpy(serialized.get() + sizeof(addr) + sizeof(rkey), &length, sizeof(length));
-
-    Send(serialized.get(), size);
+    Send(&rmr, sizeof(rmr));
   }
 
   std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const override {
-    uint64_t addr;
-    uint32_t rkey;
-    size_t length;
-    auto size = sizeof(addr) + sizeof(rkey) + sizeof(length);
-    std::unique_ptr<char[]> serialized(new char[size]);
+    std::unique_ptr<RemoteMemoryRegion> rmr(new RemoteMemoryRegion);
+    auto len = sizeof(RemoteMemoryRegion);
 
     // receive memory region info from the peer node
-    if (Recv(serialized.get(), size) != size) {
+    if (Recv(rmr.get(), len) != len) {
       return nullptr;
     }
-    // deserialize it
-    std::memcpy(&addr, serialized.get(), sizeof(addr));
-    std::memcpy(&rkey, serialized.get() + sizeof(addr), sizeof(rkey));
-    std::memcpy(&length, serialized.get() + sizeof(addr) + sizeof(rkey), sizeof(length));
 
-    return std::unique_ptr<RemoteMemoryRegion>(new RemoteMemoryRegion(reinterpret_cast<void *>(addr), rkey, length));
+    return std::move(rmr);
   }
 
   const struct rdma_cm_id *GetIDPtr() const {
