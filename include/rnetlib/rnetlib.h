@@ -16,40 +16,37 @@
 
 namespace rnetlib {
 
-class RNetLib {
- public:
-  enum Mode {
-    SOCKET,
-    VERBS
-  };
-
-  static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
-#ifdef RNETLIB_USE_RDMA
-    if (mode == VERBS) {
-      return std::unique_ptr<Client>(new verbs::VerbsClient(addr, port));
-    }
-#endif // RNETLIB_USE_RDMA
-    return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
-  }
-
-  static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
-#ifdef RNETLIB_USE_RDMA
-    if (mode == VERBS) {
-      return std::unique_ptr<Server>(new verbs::VerbsServer(addr, port));
-    }
-#endif // RNETLIB_USE_RDMA
-    return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
-  }
-
-  static std::unique_ptr<EventLoop> NewEventLoop(Mode mode = Mode::SOCKET) {
-#ifdef RNETLIB_USE_RDMA
-    if (mode == VERBS) {
-      return std::unique_ptr<EventLoop>(new verbs::VerbsEventLoop);
-    }
-#endif // RNETLIB_USE_RDMA
-    return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
-  }
+enum Mode {
+  SOCKET,
+  VERBS
 };
+
+static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
+#ifdef RNETLIB_USE_RDMA
+  if (mode == VERBS) {
+    return std::unique_ptr<Client>(new verbs::VerbsClient(addr, port));
+  }
+#endif // RNETLIB_USE_RDMA
+  return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
+}
+
+static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
+#ifdef RNETLIB_USE_RDMA
+  if (mode == VERBS) {
+    return std::unique_ptr<Server>(new verbs::VerbsServer(addr, port));
+  }
+#endif // RNETLIB_USE_RDMA
+  return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
+}
+
+static std::unique_ptr<EventLoop> NewEventLoop(Mode mode = Mode::SOCKET) {
+#ifdef RNETLIB_USE_RDMA
+  if (mode == VERBS) {
+    return std::unique_ptr<EventLoop>(new verbs::VerbsEventLoop);
+  }
+#endif // RNETLIB_USE_RDMA
+  return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
+}
 
 } // namespace rnetlib
 

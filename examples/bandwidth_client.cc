@@ -3,9 +3,7 @@
 
 #include <rnetlib/rnetlib.h>
 
-using namespace rnetlib;
-
-void do_pingpong(const Channel &channel, size_t msg_len) {
+void do_pingpong(const rnetlib::Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 
@@ -33,7 +31,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), RNetLib::Mode::SOCKET);
+  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::Mode::SOCKET);
   auto channel = client->Connect();
 
   size_t max_bytes = (1 << 23);

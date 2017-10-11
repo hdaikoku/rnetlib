@@ -2,8 +2,6 @@
 
 #include <rnetlib/rnetlib.h>
 
-using namespace rnetlib;
-
 int main(int argc, const char **argv) {
   if (argc != 4) {
     std::cerr << "Usage: " << argv[0] << " [addr] [port] [num_sgs]" << std::endl;
@@ -13,10 +11,10 @@ int main(int argc, const char **argv) {
   int num_sgs = std::stoi(argv[3]);
 
   // FIXME: handle errors
-  auto client = RNetLib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), RNetLib::Mode::SOCKET);
+  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::Mode::SOCKET);
   auto channel = client->Connect();
 
-  std::vector<std::unique_ptr<LocalMemoryRegion>> mrs;
+  std::vector<rnetlib::LocalMemoryRegion::ptr> mrs;
   int msgs[num_sgs];
   for (int i = 0; i < num_sgs; i++) {
     msgs[i] = i;

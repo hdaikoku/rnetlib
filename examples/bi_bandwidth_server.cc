@@ -3,14 +3,12 @@
 
 #include <rnetlib/rnetlib.h>
 
-using namespace rnetlib;
-
-void do_pingpong(Channel &channel, size_t msg_len) {
+void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 
   channel.SetNonBlocking(true);
-  auto evloop = RNetLib::NewEventLoop(RNetLib::Mode::SOCKET);
+  auto evloop = rnetlib::NewEventLoop(rnetlib::Mode::SOCKET);
 
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < 2500; i++) {
@@ -33,7 +31,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::SOCKET);
+  auto server = rnetlib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
   server->Listen();
   auto channel = server->Accept();
 

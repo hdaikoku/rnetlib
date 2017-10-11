@@ -4,14 +4,12 @@
 
 #include <rnetlib/rnetlib.h>
 
-using namespace rnetlib;
-
-void send_by_iovec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs,
+void send_by_iovec(const std::vector<rnetlib::LocalMemoryRegion::ptr> &mrs,
                    size_t msg_size,
                    int num_iters,
-                   Channel &channel) {
+                   rnetlib::Channel &channel) {
   channel.SetNonBlocking(true);
-  auto evloop = RNetLib::NewEventLoop(RNetLib::Mode::SOCKET);
+  auto evloop = rnetlib::NewEventLoop(rnetlib::Mode::SOCKET);
 
   auto beg = std::chrono::steady_clock::now();
   channel.IRecvV(mrs, *evloop);
@@ -24,7 +22,10 @@ void send_by_iovec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs,
   std::cout << "send by iovec: " << dur << " [msecs], Bandwidth: " << bw << " [Gbit/s]" << std::endl;
 }
 
-void send_by_iter(const std::vector<std::unique_ptr<char[]>> &blks, size_t msg_size, int num_iters, Channel &channel) {
+void send_by_iter(const std::vector<std::unique_ptr<char[]>> &blks,
+                  size_t msg_size,
+                  int num_iters,
+                  rnetlib::Channel &channel) {
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < num_iters; i++) {
     channel.Recv(blks[i].get(), msg_size);
@@ -47,12 +48,12 @@ int main(int argc, const char **argv) {
   int num_iters = std::stoi(argv[3]);
 
   // FIXME: handle errors
-  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::SOCKET);
+  auto server = rnetlib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
   server->Listen();
   auto channel = server->Accept();
 
   std::vector<std::unique_ptr<char[]>> blks;
-  std::vector<std::unique_ptr<LocalMemoryRegion>> mrs;
+  std::vector<rnetlib::LocalMemoryRegion::ptr> mrs;
   for (int i = 0; i < num_iters; i++) {
     std::unique_ptr<char[]> blk(new char[msg_size]);
     mrs.emplace_back(channel->RegisterMemory(blk.get(), msg_size, MR_LOCAL_READ | MR_LOCAL_WRITE));

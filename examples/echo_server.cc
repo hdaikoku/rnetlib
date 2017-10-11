@@ -2,8 +2,6 @@
 
 #include <rnetlib/rnetlib.h>
 
-using namespace rnetlib;
-
 int main(int argc, const char **argv) {
   if (argc != 2) {
     std::cerr << "Usage: " << argv[0] << " [port]" << std::endl;
@@ -11,7 +9,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto server = RNetLib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), RNetLib::Mode::SOCKET);
+  auto server = rnetlib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
   server->Listen();
   std::cout << "EchoServer: listening on port " << server->GetListenPort() << std::endl;
   auto channel = server->Accept();
