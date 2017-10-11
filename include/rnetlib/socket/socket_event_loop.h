@@ -1,13 +1,10 @@
-//
-// Created by Harunobu Daikoku on 2017/02/16.
-//
+#ifndef RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H_
+#define RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H_
 
-#ifndef RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H
-#define RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H
+#include <poll.h>
 
 #include <algorithm>
 #include <functional>
-#include <poll.h>
 #include <unordered_map>
 #include <vector>
 
@@ -20,13 +17,13 @@
 #else
 // BSD-socket specific functions
 #define S_POLL(f, n, t)              poll(f, n, t)
-#endif //USE_RDMA
+#endif // USE_RDMA
 
 namespace rnetlib {
 namespace socket {
+
 class SocketEventLoop : public EventLoop {
  public:
-
   void AddHandler(EventHandler &handler) override {
     auto sock_fd = *(reinterpret_cast<int *>(handler.GetHandlerID()));
     if (handler_refs_.find(sock_fd) == handler_refs_.end()) {
@@ -86,9 +83,9 @@ class SocketEventLoop : public EventLoop {
 
  private:
   std::unordered_map<int, std::reference_wrapper<EventHandler>> handler_refs_;
-
 };
-}
-}
 
-#endif //RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H
+} // namespace socket
+} // namespace rnetlib
+
+#endif // RNETLIB_SOCKET_SOCKET_EVENT_LOOP_H_

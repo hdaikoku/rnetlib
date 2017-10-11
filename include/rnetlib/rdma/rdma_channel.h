@@ -1,14 +1,11 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
+#ifndef RNETLIB_RDMA_RDMA_CHANNEL_H_
+#define RNETLIB_RDMA_RDMA_CHANNEL_H_
 
-#ifndef RNETLIB_RDMA_RDMA_CHANNEL_H
-#define RNETLIB_RDMA_RDMA_CHANNEL_H
-
-#include <cstring>
 #include <fcntl.h>
 #include <poll.h>
 #include <infiniband/verbs.h>
+
+#include <cstring>
 
 #include "rnetlib/channel.h"
 #include "rnetlib/rdma/rdma_common.h"
@@ -18,9 +15,9 @@
 
 namespace rnetlib {
 namespace rdma {
+
 class RDMAChannel : public Channel {
  public:
-
   RDMAChannel(RDMACommon::RDMACommID id) : id_(std::move(id)), recv_buf_(IBV_RCVBUF, id_->pd) {
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr;
@@ -309,9 +306,9 @@ class RDMAChannel : public Channel {
 
     return (ret < 0) ? false : (wc.status == IBV_WC_SUCCESS);
   }
-
 };
-}
-}
 
-#endif //RNETLIB_RDMA_RDMA_CHANNEL_H
+} // namespace rdma
+} // namespace rnetlib
+
+#endif // RNETLIB_RDMA_RDMA_CHANNEL_H_

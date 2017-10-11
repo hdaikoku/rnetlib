@@ -1,18 +1,15 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
+#ifndef RNETLIB_SOCKET_SOCKET_COMMON_H_
+#define RNETLIB_SOCKET_SOCKET_COMMON_H_
 
-#ifndef RNETLIB_SOCKET_SOCKET_COMMON_H
-#define RNETLIB_SOCKET_SOCKET_COMMON_H
-
-#include <cstring>
-#include <fcntl.h>
-#include <memory>
 #include <netdb.h>
-#include <string>
+#include <fcntl.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+
+#include <cstring>
+#include <memory>
+#include <string>
 
 #ifdef USE_RDMA
 // rsocket-specific functions
@@ -54,10 +51,11 @@
 #define S_GETSOCKOPT(s, l, n, v, ol) getsockopt(s, l, n, v, ol)
 #define S_POLL(f, n, t)              poll(f, n, t)
 #define S_GETPEERNAME(s, a, l)       getpeername(s, a, l)
-#endif //USE_RDMA
+#endif // USE_RDMA
 
 namespace rnetlib {
 namespace socket {
+
 class SocketCommon {
  public:
   // deleter class for (rdma_)addrinfo
@@ -71,7 +69,6 @@ class SocketCommon {
   };
 
   SocketCommon() = default;
-
   SocketCommon(int sock_fd) : sock_fd_(sock_fd) {}
 
  protected:
@@ -163,9 +160,9 @@ class SocketCommon {
 
     return true;
   }
-
 };
-}
-}
 
-#endif //RNETLIB_SOCKET_SOCKET_COMMON_H
+} // namespace socket
+} // namespace rnetlib
+
+#endif // RNETLIB_SOCKET_SOCKET_COMMON_H_

@@ -1,22 +1,19 @@
-//
-// Created by Harunobu Daikoku on 2017/02/14.
-//
+#ifndef RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H_
+#define RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H_
 
-#ifndef RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H
-#define RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H
+#include <infiniband/verbs.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <infiniband/verbs.h>
 
 #include "rnetlib/local_memory_region.h"
 
 namespace rnetlib {
 namespace rdma {
+
 class RDMALocalMemoryRegion : public LocalMemoryRegion {
  public:
-
   static std::unique_ptr<LocalMemoryRegion> Register(struct ibv_pd *pd, void *addr, size_t length, int type) {
     int ibv_mr_type = 0;
 
@@ -48,29 +45,21 @@ class RDMALocalMemoryRegion : public LocalMemoryRegion {
     }
   }
 
-  void *GetAddr() const override {
-    return mr_->addr;
-  }
+  void *GetAddr() const override { return mr_->addr; }
 
-  size_t GetLength() const override {
-    return mr_->length;
-  }
+  size_t GetLength() const override { return mr_->length; }
 
-  uint32_t GetLKey() const override {
-    return mr_->lkey;
-  }
+  uint32_t GetLKey() const override { return mr_->lkey; }
 
-  uint32_t GetRKey() const override {
-    return mr_->rkey;
-  }
+  uint32_t GetRKey() const override { return mr_->rkey; }
 
  private:
   struct ibv_mr *mr_;
 
   RDMALocalMemoryRegion(struct ibv_mr *mr) : mr_(mr) {}
-
 };
-}
-}
 
-#endif //RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H
+} // namespace rdma
+} // namespace rnetlib
+
+#endif // RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H_

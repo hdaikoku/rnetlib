@@ -1,13 +1,10 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
+#ifndef RNETLIB_SOCKET_SOCKET_CLIENT_H_
+#define RNETLIB_SOCKET_SOCKET_CLIENT_H_
 
-#ifndef RNETLIB_SOCKET_SOCKET_CLIENT_H
-#define RNETLIB_SOCKET_SOCKET_CLIENT_H
+#include <poll.h>
 
 #include <cerrno>
 #include <chrono>
-#include <poll.h>
 
 #include "rnetlib/client.h"
 #include "rnetlib/socket/socket_channel.h"
@@ -24,17 +21,17 @@
 #define S_CONNECT(s, a, l)           connect(s, a, l)
 #define S_DST_ADDR(a)                a->ai_addr
 #define S_DST_ADDRLEN(a)             a->ai_addrlen
-#endif //USE_RDMA
+#endif // USE_RDMA
 
 namespace rnetlib {
 namespace socket {
+
 class SocketClient : public Client, public SocketCommon, public EventHandler {
  public:
-
   SocketClient(const std::string &peer_addr, uint16_t peer_port)
       : peer_addr_(peer_addr), peer_port_(peer_port) {}
 
-  virtual ~SocketClient() {}
+  virtual ~SocketClient() = default;
 
   Channel::Ptr Connect() override {
     auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
@@ -179,9 +176,9 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
 
     return MAY_BE_REMOVED;
   }
-
 };
-}
-}
 
-#endif //RNETLIB_SOCKET_SOCKET_CLIENT_H
+} // namespace socket
+} // namespace rnetlib
+
+#endif // RNETLIB_SOCKET_SOCKET_CLIENT_H_

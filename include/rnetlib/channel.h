@@ -1,9 +1,5 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
-
-#ifndef RNETLIB_CHANNEL_H
-#define RNETLIB_CHANNEL_H
+#ifndef RNETLIB_CHANNEL_H_
+#define RNETLIB_CHANNEL_H_
 
 #include <memory>
 #include <vector>
@@ -13,12 +9,11 @@
 #include "rnetlib/remote_memory_region.h"
 
 namespace rnetlib {
+
 class Channel {
  public:
-
   using Ptr = std::unique_ptr<Channel>;
 
-  // keep this empty virtual destructor for derived classes
   virtual ~Channel() = default;
 
   virtual bool SetNonBlocking(bool non_blocking) = 0;
@@ -52,8 +47,8 @@ class Channel {
   virtual void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const = 0;
 
   virtual std::unique_ptr<RemoteMemoryRegion> AckRemoteMemoryRegion() const = 0;
-
 };
-}
 
-#endif //RNETLIB_CHANNEL_H
+} // namespace rnetlib
+
+#endif // RNETLIB_CHANNEL_H_

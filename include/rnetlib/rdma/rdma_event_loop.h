@@ -1,23 +1,20 @@
-//
-// Created by Harunobu Daikoku on 2017/02/20.
-//
+#ifndef RNETLIB_RDMA_RDMA_EVENT_LOOP_H_
+#define RNETLIB_RDMA_RDMA_EVENT_LOOP_H_
 
-#ifndef RNETLIB_RDMA_RDMA_EVENT_LOOP_H
-#define RNETLIB_RDMA_RDMA_EVENT_LOOP_H
+#include <rdma/rdma_cma.h>
 
 #include <algorithm>
 #include <functional>
 #include <memory>
-#include <rdma/rdma_cma.h>
 #include <vector>
 
 #include "rnetlib/event_loop.h"
 
 namespace rnetlib {
 namespace rdma {
+
 class RDMAEventLoop : public EventLoop {
  public:
-
   // deleter class for rdma_event_channel
   class RDMAEventChannelDeleter {
    public:
@@ -93,9 +90,9 @@ class RDMAEventLoop : public EventLoop {
  private:
   std::unique_ptr<struct rdma_event_channel, RDMAEventChannelDeleter> event_channel_;
   std::vector<std::reference_wrapper<EventHandler>> handlers_;
-
 };
-}
-}
 
-#endif //RNETLIB_RDMA_RDMA_EVENT_LOOP_H
+} // namespace rdma
+} // namespace rnetlib
+
+#endif // RNETLIB_RDMA_RDMA_EVENT_LOOP_H_

@@ -1,26 +1,19 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
+#ifndef RNETLIB_RDMA_RDMA_COMMON_H_
+#define RNETLIB_RDMA_RDMA_COMMON_H_
 
-#ifndef RNETLIB_RDMA_RDMA_COMMON_H
-#define RNETLIB_RDMA_RDMA_COMMON_H
+#include <rdma/rdma_cma.h>
 
 #include <memory>
 #include <string>
-#include <rdma/rdma_cma.h>
 
 namespace rnetlib {
 namespace rdma {
+
 class RDMACommon {
  public:
-
   class RDMACMIDDeleter {
    public:
-
-    void operator()(struct rdma_cm_id *id) const {
-      rdma_destroy_ep(id);
-    }
-
+    void operator()(struct rdma_cm_id *id) const { rdma_destroy_ep(id); }
   };
 
   using RDMACommID = std::unique_ptr<struct rdma_cm_id, RDMACMIDDeleter>;
@@ -69,9 +62,9 @@ class RDMACommon {
 
     return RDMACommID(tmp_id);
   }
-
 };
-}
-}
 
-#endif //RNETLIB_RDMA_RDMA_COMMON_H
+} // namespace rdma
+} // namespace rnetlib
+
+#endif // RNETLIB_RDMA_RDMA_COMMON_H_

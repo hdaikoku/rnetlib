@@ -1,9 +1,5 @@
-//
-// Created by Harunobu Daikoku on 2017/02/15.
-//
-
-#ifndef RNETLIB_RNETLIB_H
-#define RNETLIB_RNETLIB_H
+#ifndef RNETLIB_RNETLIB_H_
+#define RNETLIB_RNETLIB_H_
 
 #include "rnetlib/client.h"
 #include "rnetlib/event_loop.h"
@@ -16,12 +12,12 @@
 #include "rnetlib/rdma/rdma_client.h"
 #include "rnetlib/rdma/rdma_event_loop.h"
 #include "rnetlib/rdma/rdma_server.h"
-#endif //USE_RDMA
+#endif // USE_RDMA
 
 namespace rnetlib {
+
 class RNetLib {
  public:
-
   enum Mode {
     SOCKET,
     VERBS
@@ -32,7 +28,7 @@ class RNetLib {
     if (mode == VERBS) {
       return std::unique_ptr<Client>(new rdma::RDMAClient(addr, port));
     }
-#endif //USE_RDMA
+#endif // USE_RDMA
     return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
   }
 
@@ -41,7 +37,7 @@ class RNetLib {
     if (mode == VERBS) {
       return std::unique_ptr<Server>(new rdma::RDMAServer(addr, port));
     }
-#endif //USE_RDMA
+#endif // USE_RDMA
     return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
   }
 
@@ -50,11 +46,11 @@ class RNetLib {
     if (mode == VERBS) {
       return std::unique_ptr<EventLoop>(new rdma::RDMAEventLoop);
     }
-#endif //USE_RDMA
+#endif // USE_RDMA
     return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
   }
-
 };
-}
 
-#endif //RNETLIB_RNETLIB_H
+} // namespace rnetlib
+
+#endif // RNETLIB_RNETLIB_H_

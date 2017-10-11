@@ -1,9 +1,5 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
-
-#ifndef RNETLIB_RDMA_RDMA_SERVER_H
-#define RNETLIB_RDMA_RDMA_SERVER_H
+#ifndef RNETLIB_RDMA_RDMA_SERVER_H_
+#define RNETLIB_RDMA_RDMA_SERVER_H_
 
 #include <cerrno>
 
@@ -12,9 +8,9 @@
 
 namespace rnetlib {
 namespace rdma {
+
 class RDMAServer : public Server, public EventHandler {
  public:
-
   RDMAServer(const std::string &bind_addr, uint16_t bind_port)
       : bind_addr_(bind_addr), bind_port_(bind_port) {}
 
@@ -118,9 +114,9 @@ class RDMAServer : public Server, public EventHandler {
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;
   std::function<void(Channel &)> on_established_;
-
 };
-}
-}
 
-#endif //RNETLIB_RDMA_RDMA_SERVER_H
+} // namespace rdma
+} // namespace rnetlib
+
+#endif // RNETLIB_RDMA_RDMA_SERVER_H_

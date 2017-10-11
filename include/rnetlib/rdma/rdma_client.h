@@ -1,22 +1,18 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
-
-#ifndef RNETLIB_RDMA_RDMA_CLIENT_H
-#define RNETLIB_RDMA_RDMA_CLIENT_H
+#ifndef RNETLIB_RDMA_RDMA_CLIENT_H_
+#define RNETLIB_RDMA_RDMA_CLIENT_H_
 
 #include "rnetlib/client.h"
 #include "rnetlib/rdma/rdma_channel.h"
 
 namespace rnetlib {
 namespace rdma {
+
 class RDMAClient : public Client, public EventHandler {
  public:
-
   RDMAClient(const std::string &peer_addr, uint16_t peer_port)
       : peer_addr_(peer_addr), peer_port_(peer_port) {}
 
-  virtual ~RDMAClient() {}
+  virtual ~RDMAClient() = default;
 
   Channel::Ptr Connect() override {
     auto id = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
@@ -88,9 +84,9 @@ class RDMAClient : public Client, public EventHandler {
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;
   std::function<void(Channel &)> on_established_;
-
 };
-}
-}
 
-#endif //RNETLIB_RDMA_RDMA_CLIENT_H
+} // namespace rdma
+} // namespace rnetlib
+
+#endif // RNETLIB_RDMA_RDMA_CLIENT_H_

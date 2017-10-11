@@ -1,9 +1,5 @@
-//
-// Created by Harunobu Daikoku on 2017/02/13.
-//
-
-#ifndef RNETLIB_LOCAL_MEMORY_REGION_H
-#define RNETLIB_LOCAL_MEMORY_REGION_H
+#ifndef RNETLIB_LOCAL_MEMORY_REGION_H_
+#define RNETLIB_LOCAL_MEMORY_REGION_H_
 
 enum MRType {
   MR_LOCAL_READ   = 0,
@@ -13,10 +9,9 @@ enum MRType {
 };
 
 namespace rnetlib {
+
 class LocalMemoryRegion {
  public:
-
-  // keep this empty virtual destructor for derived classes
   virtual ~LocalMemoryRegion() = default;
 
   virtual void *GetAddr() const = 0;
@@ -26,8 +21,8 @@ class LocalMemoryRegion {
   virtual uint32_t GetLKey() const = 0;
 
   virtual uint32_t GetRKey() const = 0;
-
 };
-}
 
-#endif //RNETLIB_LOCAL_MEMORY_REGION_H
+} // namespace rnetlib
+
+#endif // RNETLIB_LOCAL_MEMORY_REGION_H_

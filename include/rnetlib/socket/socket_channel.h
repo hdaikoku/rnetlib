@@ -1,16 +1,13 @@
-//
-// Created by Harunobu Daikoku on 2017/02/10.
-//
-
-#ifndef RNETLIB_SOCKET_SOCKET_CHANNEL_H
-#define RNETLIB_SOCKET_SOCKET_CHANNEL_H
+#ifndef RNETLIB_SOCKET_SOCKET_CHANNEL_H_
+#define RNETLIB_SOCKET_SOCKET_CHANNEL_H_
 
 #include <limits.h>
 #include <netdb.h>
-#include <string>
 #include <unistd.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+
+#include <string>
 
 #include "rnetlib/channel.h"
 #include "rnetlib/event_handler.h"
@@ -19,15 +16,14 @@
 
 #ifndef IOV_MAX
 #define IOV_MAX 1024
-#endif //IOV_MAX
+#endif // IOV_MAX
 
 namespace rnetlib {
 namespace socket {
+
 class SocketChannel : public Channel, public EventHandler, public SocketCommon {
  public:
-
   SocketChannel() = default;
-
   SocketChannel(int sock_fd) : SocketCommon(sock_fd) {}
 
   bool SetNonBlocking(bool non_blocking) override {
@@ -231,9 +227,9 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
     return offset;
   }
-
 };
-}
-}
 
-#endif //RNETLIB_SOCKET_SOCKET_CHANNEL_H
+} // namespace socket
+} // namespace rnetlib
+
+#endif // RNETLIB_SOCKET_SOCKET_CHANNEL_H_
