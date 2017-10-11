@@ -52,7 +52,7 @@ class VerbsChannel : public Channel {
     return Recv(*mr);
   }
 
-  size_t Send(LocalMemoryRegion &mem) const override {
+  size_t Send(const LocalMemoryRegion &mem) const override {
     size_t sending_len, offset = 0;
     auto buf = mem.GetAddr();
     auto len = mem.GetLength();
@@ -72,7 +72,7 @@ class VerbsChannel : public Channel {
     return offset;
   }
 
-  size_t Recv(LocalMemoryRegion &mem) const override {
+  size_t Recv(const LocalMemoryRegion &mem) const override {
     size_t offset = 0;
     struct ibv_sge sge;
     struct ibv_recv_wr wr, *bad_wr;
@@ -172,12 +172,12 @@ class VerbsChannel : public Channel {
     return 0;
   }
 
-  size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
+  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
     return PostSend(IBV_WR_RDMA_WRITE, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
                     reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey);
   }
 
-  size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
+  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
     return PostSend(IBV_WR_RDMA_READ, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
                     reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey);
   }

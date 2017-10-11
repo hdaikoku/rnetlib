@@ -46,11 +46,11 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (RecvIOV(&iov, 1) == 1) ? len : 0;
   }
 
-  size_t Send(LocalMemoryRegion &mem) const override {
+  size_t Send(const LocalMemoryRegion &mem) const override {
     return Send(mem.GetAddr(), mem.GetLength());
   }
 
-  size_t Recv(LocalMemoryRegion &mem) const override {
+  size_t Recv(const LocalMemoryRegion &mem) const override {
     return Recv(mem.GetAddr(), mem.GetLength());
   }
 
@@ -108,11 +108,11 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return vec.size();
   }
 
-  size_t Write(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
+  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
     return Send(local_mem.GetAddr(), local_mem.GetLength());
   }
 
-  size_t Read(LocalMemoryRegion &local_mem, RemoteMemoryRegion &remote_mem) const override {
+  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
     return Recv(local_mem.GetAddr(), local_mem.GetLength());
   }
 
