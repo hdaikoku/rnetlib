@@ -14,8 +14,8 @@ void send_by_iovec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs,
   auto evloop = RNetLib::NewEventLoop(RNetLib::Mode::SOCKET);
 
   auto beg = std::chrono::steady_clock::now();
-  channel.IRecvVec(mrs, *evloop);
-  channel.ISendVec(mrs, *evloop);
+  channel.IRecvV(mrs, *evloop);
+  channel.ISendV(mrs, *evloop);
   evloop->WaitAll(300000);
   auto end = std::chrono::steady_clock::now();
   auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();

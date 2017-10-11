@@ -29,13 +29,13 @@ class Channel {
 
   virtual size_t IRecv(void *buf, size_t len, EventLoop &evloop) = 0;
 
-  virtual size_t SendVec(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
+  virtual size_t SendV(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
 
-  virtual size_t RecvVec(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
+  virtual size_t RecvV(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
 
-  virtual size_t ISendVec(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
+  virtual size_t ISendV(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
 
-  virtual size_t IRecvVec(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
+  virtual size_t IRecvV(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
 
   virtual size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const = 0;
 

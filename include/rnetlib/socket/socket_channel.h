@@ -68,7 +68,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return len;
   }
 
-  size_t SendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+  size_t SendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
     std::vector<struct iovec> iov;
     size_t total_len = 0;
     for (const auto &mr : mrs) {
@@ -79,7 +79,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (SendIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
   }
 
-  size_t RecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+  size_t RecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
     std::vector<struct iovec> iov;
     size_t total_len = 0;
     for (const auto &mr : mrs) {
@@ -90,7 +90,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (RecvIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
   }
 
-  size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+  size_t ISendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
     for (const auto &mr : vec) {
       send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
@@ -99,7 +99,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return vec.size();
   }
 
-  size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+  size_t IRecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
     for (const auto &mr : vec) {
       recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});

@@ -127,7 +127,7 @@ class VerbsChannel : public Channel {
     return 0;
   }
 
-  size_t SendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+  size_t SendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
     // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
     size_t offset = 0, len = 0;
     for (const auto &mr : vec) {
@@ -142,7 +142,7 @@ class VerbsChannel : public Channel {
     return Send(buf.get(), len);
   }
 
-  size_t RecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+  size_t RecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
     // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
     size_t offset = 0, len = 0;
     for (const auto &mr : vec) {
@@ -162,12 +162,12 @@ class VerbsChannel : public Channel {
     return len;
   }
 
-  size_t ISendVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+  size_t ISendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
     // TODO: implement this.
     return 0;
   }
 
-  size_t IRecvVec(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+  size_t IRecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
     // TODO: implement this.
     return 0;
   }
