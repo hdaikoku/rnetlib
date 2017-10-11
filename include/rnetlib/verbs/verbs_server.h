@@ -31,7 +31,7 @@ class VerbsServer : public Server, public EventHandler {
     return true;
   }
 
-  Channel::Ptr Accept() override {
+  Channel::ptr Accept() override {
     struct rdma_cm_id *new_id;
 
     if (rdma_get_request(listen_id_.get(), &new_id)) {
@@ -44,10 +44,10 @@ class VerbsServer : public Server, public EventHandler {
     }
 
     // FIXME: might be better to wait for RDMA_CM_EVENT_ESTABLISHED event
-    return Channel::Ptr(channel_.release());
+    return Channel::ptr(channel_.release());
   }
 
-  std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(Channel &)> on_established) override {
+  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(Channel & )> on_established) override {
     on_established_ = std::move(on_established);
 
     // migrate rdma_cm_id to event
@@ -88,7 +88,7 @@ class VerbsServer : public Server, public EventHandler {
       if (on_established_) {
         on_established_(*channel_);
       }
-      promise_.set_value(Channel::Ptr(channel_.release()));
+      promise_.set_value(Channel::ptr(channel_.release()));
     }
 
     return MAY_BE_REMOVED;
@@ -116,7 +116,7 @@ class VerbsServer : public Server, public EventHandler {
   std::unique_ptr<VerbsChannel> channel_;
   std::string bind_addr_;
   uint16_t bind_port_;
-  std::promise<Channel::Ptr> promise_;
+  std::promise<Channel::ptr> promise_;
   std::function<void(Channel &)> on_established_;
 };
 

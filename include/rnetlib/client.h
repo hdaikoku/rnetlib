@@ -13,9 +13,9 @@ class Client {
  public:
   virtual ~Client() = default;
 
-  virtual Channel::Ptr Connect() = 0;
+  virtual Channel::ptr Connect() = 0;
 
-  virtual std::future<Channel::Ptr> Connect(EventLoop &loop,
+  virtual std::future<Channel::ptr> Connect(EventLoop &loop,
                                             std::function<void(rnetlib::Channel &)> on_established = nullptr) = 0;
 };
 

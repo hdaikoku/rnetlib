@@ -60,7 +60,7 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
     return true;
   }
 
-  Channel::Ptr Accept() override {
+  Channel::ptr Accept() override {
     auto sock_fd = S_ACCEPT(sock_fd_, NULL, NULL);
     if (sock_fd < 0) {
       if (errno != EWOULDBLOCK) {
@@ -72,7 +72,7 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
     return std::unique_ptr<Channel>(new SocketChannel(sock_fd));
   }
 
-  std::future<Channel::Ptr> Accept(EventLoop &loop, std::function<void(rnetlib::Channel &)> on_established) override {
+  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(rnetlib::Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
     // set socket to non-blocking mode
@@ -124,7 +124,7 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
  private:
   std::string bind_addr_;
   uint16_t bind_port_;
-  std::promise<Channel::Ptr> promise_;
+  std::promise<Channel::ptr> promise_;
   std::function<void(rnetlib::Channel &)> on_established_;
 };
 

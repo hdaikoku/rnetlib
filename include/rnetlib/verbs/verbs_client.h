@@ -14,7 +14,7 @@ class VerbsClient : public Client, public EventHandler {
 
   virtual ~VerbsClient() = default;
 
-  Channel::Ptr Connect() override {
+  Channel::ptr Connect() override {
     auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
     if (!id) {
       return nullptr;
@@ -26,10 +26,10 @@ class VerbsClient : public Client, public EventHandler {
       return nullptr;
     }
 
-    return Channel::Ptr(channel_.release());
+    return Channel::ptr(channel_.release());
   }
 
-  std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
+  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
     auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
@@ -56,7 +56,7 @@ class VerbsClient : public Client, public EventHandler {
       if (on_established_) {
         on_established_(*channel_);
       }
-      promise_.set_value(Channel::Ptr(channel_.release()));
+      promise_.set_value(Channel::ptr(channel_.release()));
     }
 
     return MAY_BE_REMOVED;
@@ -82,7 +82,7 @@ class VerbsClient : public Client, public EventHandler {
   std::unique_ptr<VerbsChannel> channel_;
   std::string peer_addr_;
   uint16_t peer_port_;
-  std::promise<Channel::Ptr> promise_;
+  std::promise<Channel::ptr> promise_;
   std::function<void(Channel &)> on_established_;
 };
 

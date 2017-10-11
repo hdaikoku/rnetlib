@@ -15,9 +15,9 @@ class Server {
   
   virtual bool Listen() = 0;
 
-  virtual Channel::Ptr Accept() = 0;
+  virtual Channel::ptr Accept() = 0;
 
-  virtual std::future<Channel::Ptr> Accept(EventLoop &loop,
+  virtual std::future<Channel::ptr> Accept(EventLoop &loop,
                                            std::function<void(rnetlib::Channel &)> on_established = nullptr) = 0;
 
   virtual uint16_t GetListenPort() const = 0;

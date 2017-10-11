@@ -11,7 +11,7 @@ namespace rnetlib {
 
 class Channel {
  public:
-  using Ptr = std::unique_ptr<Channel>;
+  using ptr = std::unique_ptr<Channel>;
 
   virtual ~Channel() = default;
 
