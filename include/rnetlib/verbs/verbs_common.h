@@ -1,5 +1,5 @@
-#ifndef RNETLIB_RDMA_RDMA_COMMON_H_
-#define RNETLIB_RDMA_RDMA_COMMON_H_
+#ifndef RNETLIB_VERBS_VERBS_COMMON_H_
+#define RNETLIB_VERBS_VERBS_COMMON_H_
 
 #include <rdma/rdma_cma.h>
 
@@ -7,9 +7,9 @@
 #include <string>
 
 namespace rnetlib {
-namespace rdma {
+namespace verbs {
 
-class RDMACommon {
+class VerbsCommon {
  public:
   class RDMACMIDDeleter {
    public:
@@ -64,7 +64,7 @@ class RDMACommon {
   }
 };
 
-} // namespace rdma
+} // namespace verbs
 } // namespace rnetlib
 
-#endif // RNETLIB_RDMA_RDMA_COMMON_H_
+#endif // RNETLIB_VERBS_VERBS_COMMON_H_

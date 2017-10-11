@@ -1,5 +1,5 @@
-#ifndef RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H_
-#define RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H_
+#ifndef RNETLIB_VERBS_VERBS_LOCAL_MEMORY_REGION_H_
+#define RNETLIB_VERBS_VERBS_LOCAL_MEMORY_REGION_H_
 
 #include <infiniband/verbs.h>
 
@@ -10,9 +10,9 @@
 #include "rnetlib/local_memory_region.h"
 
 namespace rnetlib {
-namespace rdma {
+namespace verbs {
 
-class RDMALocalMemoryRegion : public LocalMemoryRegion {
+class VerbsLocalMemoryRegion : public LocalMemoryRegion {
  public:
   static std::unique_ptr<LocalMemoryRegion> Register(struct ibv_pd *pd, void *addr, size_t length, int type) {
     int ibv_mr_type = 0;
@@ -36,10 +36,10 @@ class RDMALocalMemoryRegion : public LocalMemoryRegion {
       return nullptr;
     }
 
-    return std::unique_ptr<LocalMemoryRegion>(new RDMALocalMemoryRegion(mr));
+    return std::unique_ptr<LocalMemoryRegion>(new VerbsLocalMemoryRegion(mr));
   }
 
-  virtual ~RDMALocalMemoryRegion() {
+  virtual ~VerbsLocalMemoryRegion() {
     if (mr_) {
       ibv_dereg_mr(mr_);
     }
@@ -56,10 +56,10 @@ class RDMALocalMemoryRegion : public LocalMemoryRegion {
  private:
   struct ibv_mr *mr_;
 
-  RDMALocalMemoryRegion(struct ibv_mr *mr) : mr_(mr) {}
+  explicit VerbsLocalMemoryRegion(struct ibv_mr *mr) : mr_(mr) {}
 };
 
-} // namespace rdma
+} // namespace verbs
 } // namespace rnetlib
 
-#endif // RNETLIB_RDMA_RDMA_LOCAL_MEMORY_REGION_H_
+#endif // RNETLIB_VERBS_VERBS_LOCAL_MEMORY_REGION_H_

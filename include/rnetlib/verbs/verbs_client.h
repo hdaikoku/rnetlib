@@ -1,26 +1,26 @@
-#ifndef RNETLIB_RDMA_RDMA_CLIENT_H_
-#define RNETLIB_RDMA_RDMA_CLIENT_H_
+#ifndef RNETLIB_VERBS_VERBS_CLIENT_H_
+#define RNETLIB_VERBS_VERBS_CLIENT_H_
 
 #include "rnetlib/client.h"
-#include "rnetlib/rdma/rdma_channel.h"
+#include "rnetlib/verbs/verbs_channel.h"
 
 namespace rnetlib {
-namespace rdma {
+namespace verbs {
 
-class RDMAClient : public Client, public EventHandler {
+class VerbsClient : public Client, public EventHandler {
  public:
-  RDMAClient(const std::string &peer_addr, uint16_t peer_port)
+  VerbsClient(const std::string &peer_addr, uint16_t peer_port)
       : peer_addr_(peer_addr), peer_port_(peer_port) {}
 
-  virtual ~RDMAClient() = default;
+  virtual ~VerbsClient() = default;
 
   Channel::Ptr Connect() override {
-    auto id = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
     if (!id) {
       return nullptr;
     }
 
-    channel_.reset(new RDMAChannel(std::move(id)));
+    channel_.reset(new VerbsChannel(std::move(id)));
 
     if (rdma_connect(const_cast<struct rdma_cm_id *>(channel_->GetIDPtr()), nullptr)) {
       return nullptr;
@@ -32,9 +32,9 @@ class RDMAClient : public Client, public EventHandler {
   std::future<Channel::Ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
     on_established_ = std::move(on_established);
 
-    auto id = RDMACommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
     if (id) {
-      channel_.reset(new RDMAChannel(std::move(id)));
+      channel_.reset(new VerbsChannel(std::move(id)));
 
       // migrate rdma_cm_id to the event loop
       loop.AddHandler(*this);
@@ -79,14 +79,14 @@ class RDMAClient : public Client, public EventHandler {
   }
 
  private:
-  std::unique_ptr<RDMAChannel> channel_;
+  std::unique_ptr<VerbsChannel> channel_;
   std::string peer_addr_;
   uint16_t peer_port_;
   std::promise<Channel::Ptr> promise_;
   std::function<void(Channel &)> on_established_;
 };
 
-} // namespace rdma
+} // namespace verbs
 } // namespace rnetlib
 
-#endif // RNETLIB_RDMA_RDMA_CLIENT_H_
+#endif // RNETLIB_VERBS_VERBS_CLIENT_H_

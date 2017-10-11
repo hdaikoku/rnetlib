@@ -1,5 +1,5 @@
-#ifndef RNETLIB_RDMA_RDMA_CHANNEL_H_
-#define RNETLIB_RDMA_RDMA_CHANNEL_H_
+#ifndef RNETLIB_VERBS_VERBS_CHANNEL_H_
+#define RNETLIB_VERBS_VERBS_CHANNEL_H_
 
 #include <fcntl.h>
 #include <poll.h>
@@ -8,17 +8,17 @@
 #include <cstring>
 
 #include "rnetlib/channel.h"
-#include "rnetlib/rdma/rdma_common.h"
-#include "rnetlib/rdma/rdma_local_memory_region.h"
+#include "rnetlib/verbs/verbs_common.h"
+#include "rnetlib/verbs/verbs_local_memory_region.h"
 
 #define IBV_RCVBUF 32
 
 namespace rnetlib {
-namespace rdma {
+namespace verbs {
 
-class RDMAChannel : public Channel {
+class VerbsChannel : public Channel {
  public:
-  RDMAChannel(RDMACommon::RDMACommID id) : id_(std::move(id)), recv_buf_(IBV_RCVBUF, id_->pd) {
+  explicit VerbsChannel(VerbsCommon::RDMACommID id) : id_(std::move(id)), recv_buf_(IBV_RCVBUF, id_->pd) {
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr;
 
@@ -32,7 +32,7 @@ class RDMAChannel : public Channel {
     ibv_post_recv(id_->qp, const_cast<struct ibv_recv_wr *>(recv_buf_.GetWorkRequestPtr()), &bad_wr);
   }
 
-  virtual ~RDMAChannel() {
+  virtual ~VerbsChannel() {
     if (id_) {
       rdma_disconnect(id_.get());
     }
@@ -183,7 +183,7 @@ class RDMAChannel : public Channel {
   }
 
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
-    return RDMALocalMemoryRegion::Register(id_->pd, addr, len, type);
+    return VerbsLocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
 
   void SynRemoteMemoryRegion(LocalMemoryRegion &mem) const override {
@@ -230,7 +230,7 @@ class RDMAChannel : public Channel {
 
     RecvBuffer(uint32_t len, struct ibv_pd *pd)
         : buflen_(len), buf_(new char[len]),
-          mr_(RDMALocalMemoryRegion::Register(pd, buf_.get(), buflen_, MR_LOCAL_WRITE)) {
+          mr_(VerbsLocalMemoryRegion::Register(pd, buf_.get(), buflen_, MR_LOCAL_WRITE)) {
       std::memset(&sge_, 0, sizeof(struct ibv_sge));
       sge_.addr = reinterpret_cast<uintptr_t>(mr_->GetAddr());
       sge_.length = static_cast<uint32_t>(mr_->GetLength());
@@ -261,7 +261,7 @@ class RDMAChannel : public Channel {
   };
 
  private:
-  RDMACommon::RDMACommID id_;
+  VerbsCommon::RDMACommID id_;
   uint32_t max_inline_data_;
   uint32_t max_send_wr_;
   uint32_t max_send_sge_;
@@ -308,7 +308,7 @@ class RDMAChannel : public Channel {
   }
 };
 
-} // namespace rdma
+} // namespace verbs
 } // namespace rnetlib
 
-#endif // RNETLIB_RDMA_RDMA_CHANNEL_H_
+#endif // RNETLIB_VERBS_VERBS_CHANNEL_H_

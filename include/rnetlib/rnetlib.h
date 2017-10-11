@@ -9,9 +9,9 @@
 #include "rnetlib/socket/socket_server.h"
 
 #ifdef RNETLIB_USE_RDMA
-#include "rnetlib/rdma/rdma_client.h"
-#include "rnetlib/rdma/rdma_event_loop.h"
-#include "rnetlib/rdma/rdma_server.h"
+#include "rnetlib/verbs/verbs_client.h"
+#include "rnetlib/verbs/verbs_event_loop.h"
+#include "rnetlib/verbs/verbs_server.h"
 #endif // RNETLIB_USE_RDMA
 
 namespace rnetlib {
@@ -26,7 +26,7 @@ class RNetLib {
   static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
 #ifdef RNETLIB_USE_RDMA
     if (mode == VERBS) {
-      return std::unique_ptr<Client>(new rdma::RDMAClient(addr, port));
+      return std::unique_ptr<Client>(new verbs::VerbsClient(addr, port));
     }
 #endif // RNETLIB_USE_RDMA
     return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
@@ -35,7 +35,7 @@ class RNetLib {
   static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
 #ifdef RNETLIB_USE_RDMA
     if (mode == VERBS) {
-      return std::unique_ptr<Server>(new rdma::RDMAServer(addr, port));
+      return std::unique_ptr<Server>(new verbs::VerbsServer(addr, port));
     }
 #endif // RNETLIB_USE_RDMA
     return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
@@ -44,7 +44,7 @@ class RNetLib {
   static std::unique_ptr<EventLoop> NewEventLoop(Mode mode = Mode::SOCKET) {
 #ifdef RNETLIB_USE_RDMA
     if (mode == VERBS) {
-      return std::unique_ptr<EventLoop>(new rdma::RDMAEventLoop);
+      return std::unique_ptr<EventLoop>(new verbs::VerbsEventLoop);
     }
 #endif // RNETLIB_USE_RDMA
     return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);

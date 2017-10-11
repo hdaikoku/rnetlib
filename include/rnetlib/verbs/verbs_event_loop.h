@@ -1,5 +1,5 @@
-#ifndef RNETLIB_RDMA_RDMA_EVENT_LOOP_H_
-#define RNETLIB_RDMA_RDMA_EVENT_LOOP_H_
+#ifndef RNETLIB_VERBS_VERBS_EVENT_LOOP_H_
+#define RNETLIB_VERBS_VERBS_EVENT_LOOP_H_
 
 #include <rdma/rdma_cma.h>
 
@@ -11,9 +11,9 @@
 #include "rnetlib/event_loop.h"
 
 namespace rnetlib {
-namespace rdma {
+namespace verbs {
 
-class RDMAEventLoop : public EventLoop {
+class VerbsEventLoop : public EventLoop {
  public:
   // deleter class for rdma_event_channel
   class RDMAEventChannelDeleter {
@@ -25,7 +25,7 @@ class RDMAEventLoop : public EventLoop {
     }
   };
 
-  RDMAEventLoop() : event_channel_(rdma_create_event_channel()) {}
+  VerbsEventLoop() : event_channel_(rdma_create_event_channel()) {}
 
   void AddHandler(EventHandler &handler) override {
     auto id = reinterpret_cast<struct rdma_cm_id *>(handler.GetHandlerID());
@@ -92,7 +92,7 @@ class RDMAEventLoop : public EventLoop {
   std::vector<std::reference_wrapper<EventHandler>> handlers_;
 };
 
-} // namespace rdma
+} // namespace verbs
 } // namespace rnetlib
 
-#endif // RNETLIB_RDMA_RDMA_EVENT_LOOP_H_
+#endif // RNETLIB_VERBS_VERBS_EVENT_LOOP_H_

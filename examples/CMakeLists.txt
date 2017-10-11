@@ -31,16 +31,16 @@ set(SOURCE_SERVER
 
 if (RNETLIB_USE_RDMA)
     set(SOURCE_COMMON ${SOURCE_COMMON}
-            "${RNETLIB_INCLUDE_DIR}/rdma/rdma_channel.h"
-            "${RNETLIB_INCLUDE_DIR}/rdma/rdma_common.h"
-            "${RNETLIB_INCLUDE_DIR}/rdma/rdma_event_loop.h"
-            "${RNETLIB_INCLUDE_DIR}/rdma/rdma_local_memory_region.h")
+            "${RNETLIB_INCLUDE_DIR}/verbs/verbs_channel.h"
+            "${RNETLIB_INCLUDE_DIR}/verbs/verbs_common.h"
+            "${RNETLIB_INCLUDE_DIR}/verbs/verbs_event_loop.h"
+            "${RNETLIB_INCLUDE_DIR}/verbs/verbs_local_memory_region.h")
 
     set(SOURCE_CLIENT ${SOURCE_CLIENT}
-            "${RNETLIB_INCLUDE_DIR}/rdma/rdma_client.h")
+            "${RNETLIB_INCLUDE_DIR}/verbs/verbs_client.h")
 
     set(SOURCE_SERVER ${SOURCE_SERVER}
-            "${RNETLIB_INCLUDE_DIR}/rdma/rdma_server.h")
+            "${RNETLIB_INCLUDE_DIR}/verbs/verbs_server.h")
 endif (RNETLIB_USE_RDMA)
 
 add_executable(bandwidth_client bandwidth_client.cc ${SOURCE_COMMON} ${SOURCE_CLIENT})

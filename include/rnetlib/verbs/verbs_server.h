@@ -1,23 +1,23 @@
-#ifndef RNETLIB_RDMA_RDMA_SERVER_H_
-#define RNETLIB_RDMA_RDMA_SERVER_H_
+#ifndef RNETLIB_VERBS_VERBS_SERVER_H_
+#define RNETLIB_VERBS_VERBS_SERVER_H_
 
 #include <cerrno>
 
 #include "rnetlib/server.h"
-#include "rnetlib/rdma/rdma_channel.h"
+#include "rnetlib/verbs/verbs_channel.h"
 
 namespace rnetlib {
-namespace rdma {
+namespace verbs {
 
-class RDMAServer : public Server, public EventHandler {
+class VerbsServer : public Server, public EventHandler {
  public:
-  RDMAServer(const std::string &bind_addr, uint16_t bind_port)
+  VerbsServer(const std::string &bind_addr, uint16_t bind_port)
       : bind_addr_(bind_addr), bind_port_(bind_port) {}
 
-  virtual ~RDMAServer() = default;
+  virtual ~VerbsServer() = default;
 
   bool Listen() override {
-    listen_id_ = RDMACommon::NewRDMACommID(bind_addr_.c_str(), bind_port_, RAI_PASSIVE);
+    listen_id_ = VerbsCommon::NewRDMACommID(bind_addr_.c_str(), bind_port_, RAI_PASSIVE);
     if (!listen_id_) {
       // TODO: log error
       return false;
@@ -38,7 +38,7 @@ class RDMAServer : public Server, public EventHandler {
       return nullptr;
     }
 
-    channel_.reset(new RDMAChannel(RDMACommon::RDMACommID(new_id)));
+    channel_.reset(new VerbsChannel(VerbsCommon::RDMACommID(new_id)));
     if (rdma_accept(const_cast<struct rdma_cm_id *>(channel_->GetIDPtr()), nullptr)) {
       return nullptr;
     }
@@ -64,11 +64,11 @@ class RDMAServer : public Server, public EventHandler {
     if (event_type == RDMA_CM_EVENT_CONNECT_REQUEST) {
       // got a connect request.
       // issue accept and wait for establishment.
-      channel_.reset(new RDMAChannel(RDMACommon::RDMACommID(reinterpret_cast<struct rdma_cm_id *>(arg))));
+      channel_.reset(new VerbsChannel(VerbsCommon::RDMACommID(reinterpret_cast<struct rdma_cm_id *>(arg))));
       auto id = channel_->GetIDPtr();
 
       struct ibv_qp_init_attr init_attr;
-      RDMACommon::SetInitAttr(init_attr);
+      VerbsCommon::SetInitAttr(init_attr);
       std::memset(&init_attr, 0, sizeof(init_attr));
 
       if (rdma_create_qp(const_cast<struct rdma_cm_id *>(id), id->pd, &init_attr)) {
@@ -112,15 +112,15 @@ class RDMAServer : public Server, public EventHandler {
   }
 
  private:
-  RDMACommon::RDMACommID listen_id_;
-  std::unique_ptr<RDMAChannel> channel_;
+  VerbsCommon::RDMACommID listen_id_;
+  std::unique_ptr<VerbsChannel> channel_;
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::Ptr> promise_;
   std::function<void(Channel &)> on_established_;
 };
 
-} // namespace rdma
+} // namespace verbs
 } // namespace rnetlib
 
-#endif // RNETLIB_RDMA_RDMA_SERVER_H_
+#endif // RNETLIB_VERBS_VERBS_SERVER_H_
