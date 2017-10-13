@@ -11,6 +11,8 @@ namespace rnetlib {
 
 class Client {
  public:
+  using ptr = std::unique_ptr<Client>;
+
   virtual ~Client() = default;
 
   virtual Channel::ptr Connect() = 0;

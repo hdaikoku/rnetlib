@@ -11,6 +11,8 @@ namespace rnetlib {
 
 class Server {
  public:
+  using ptr = std::unique_ptr<Server>;
+
   virtual ~Server() = default;
   
   virtual bool Listen() = 0;
