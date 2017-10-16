@@ -186,27 +186,19 @@ class VerbsChannel : public Channel {
     return VerbsLocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
 
-  void SynRemoteMemoryRegion(const LocalMemoryRegion &lmr) const override {
-    RemoteMemoryRegion rmr(lmr);
-
-    Send(&rmr, sizeof(rmr));
-  }
-
-  void AckRemoteMemoryRegion(RemoteMemoryRegion *rmr) const override { Recv(rmr, sizeof(RemoteMemoryRegion)); }
-
-  void SynRemoteMemoryRegionV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
+  void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) const override {
     std::vector<RemoteMemoryRegion> rmrs;
-    rmrs.reserve(vec.size());
+    rmrs.reserve(len);
 
-    for (const auto &v : vec) {
-      rmrs.emplace_back(*v);
+    for (auto i = 0; i < len; i++) {
+      rmrs.emplace_back(*lmr[i]);
     }
 
     Send(rmrs.data(), sizeof(RemoteMemoryRegion) * rmrs.size());
   }
 
-  void AckRemoteMemoryRegionV(std::vector<RemoteMemoryRegion> *vec) const override {
-    Recv(vec->data(), sizeof(RemoteMemoryRegion) * vec->size());
+  void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) const override {
+    Recv(rmr, sizeof(RemoteMemoryRegion) * len);
   }
 
   const struct rdma_cm_id *GetIDPtr() const {

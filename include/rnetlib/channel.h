@@ -43,13 +43,9 @@ class Channel {
 
   virtual LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const = 0;
 
-  virtual void SynRemoteMemoryRegion(const LocalMemoryRegion &lmr) const = 0;
+  virtual void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) const = 0;
 
-  virtual void AckRemoteMemoryRegion(RemoteMemoryRegion *rmr) const = 0;
-
-  virtual void SynRemoteMemoryRegionV(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
-
-  virtual void AckRemoteMemoryRegionV(std::vector<RemoteMemoryRegion> *vec) const = 0;
+  virtual void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) const = 0;
 };
 
 } // namespace rnetlib
