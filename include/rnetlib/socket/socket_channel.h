@@ -92,19 +92,23 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   size_t ISendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    for (const auto &mr : vec) {
-      send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+    if (!vec.empty()) {
+      for (const auto &mr : vec) {
+        send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+      }
+      evloop.AddHandler(*this);
     }
-    evloop.AddHandler(*this);
     return vec.size();
   }
 
   size_t IRecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    for (const auto &mr : vec) {
-      recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+    if (!vec.empty()) {
+      for (const auto &mr : vec) {
+        recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+      }
+      evloop.AddHandler(*this);
     }
-    evloop.AddHandler(*this);
     return vec.size();
   }
 
