@@ -15,8 +15,11 @@ namespace verbs {
 class VerbsLocalMemoryRegion : public LocalMemoryRegion {
  public:
   static std::unique_ptr<LocalMemoryRegion> Register(struct ibv_pd *pd, void *addr, size_t length, int type) {
-    int ibv_mr_type = 0;
+    if (length == 0) {
+      return std::unique_ptr<LocalMemoryRegion>(new VerbsLocalMemoryRegion(nullptr));
+    }
 
+    int ibv_mr_type = 0;
     if (type & MR_LOCAL_WRITE) {
       ibv_mr_type |= IBV_ACCESS_LOCAL_WRITE;
     }
@@ -45,13 +48,13 @@ class VerbsLocalMemoryRegion : public LocalMemoryRegion {
     }
   }
 
-  void *GetAddr() const override { return mr_->addr; }
+  void *GetAddr() const override { return mr_ ? mr_->addr : nullptr; }
 
-  size_t GetLength() const override { return mr_->length; }
+  size_t GetLength() const override { return mr_ ? mr_->length : 0; }
 
-  uint32_t GetLKey() const override { return mr_->lkey; }
+  uint32_t GetLKey() const override { return mr_ ? mr_->lkey : 0; }
 
-  uint32_t GetRKey() const override { return mr_->rkey; }
+  uint32_t GetRKey() const override { return mr_ ? mr_->rkey : 0; }
 
  private:
   struct ibv_mr *mr_;

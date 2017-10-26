@@ -73,6 +73,10 @@ class VerbsChannel : public Channel {
   }
 
   size_t Recv(const LocalMemoryRegion &mem) const override {
+    if (mem.GetLength() == 0) {
+      return 0;
+    }
+
     size_t offset = 0;
     struct ibv_sge sge;
     struct ibv_recv_wr wr, *bad_wr;
@@ -201,15 +205,12 @@ class VerbsChannel : public Channel {
     Recv(rmr, sizeof(RemoteMemoryRegion) * len);
   }
 
-  const struct rdma_cm_id *GetIDPtr() const {
-    return id_.get();
-  }
+  const struct rdma_cm_id *GetIDPtr() const { return id_.get(); }
 
  private:
   // Pre-allocated buffer for Recv operations.
   class RecvBuffer {
    public:
-
     RecvBuffer(uint32_t len, struct ibv_pd *pd)
         : buflen_(len), buf_(new char[len]),
           mr_(VerbsLocalMemoryRegion::Register(pd, buf_.get(), buflen_, MR_LOCAL_WRITE)) {
@@ -229,9 +230,7 @@ class VerbsChannel : public Channel {
       return cpylen;
     }
 
-    const struct ibv_recv_wr *GetWorkRequestPtr() const {
-      return &wr_;
-    }
+    const struct ibv_recv_wr *GetWorkRequestPtr() const { return &wr_; }
 
    private:
     struct ibv_sge sge_;
@@ -239,7 +238,6 @@ class VerbsChannel : public Channel {
     const uint32_t buflen_;
     const std::unique_ptr<char[]> buf_;
     const std::unique_ptr<LocalMemoryRegion> mr_;
-
   };
 
  private:
@@ -251,14 +249,17 @@ class VerbsChannel : public Channel {
   RecvBuffer recv_buf_;
 
   size_t PostSend(enum ibv_wr_opcode opcode, void *buf, size_t len, uint32_t lkey, void *raddr, uint32_t rkey) const {
-    struct ibv_sge sge;
-    struct ibv_send_wr wr, *bad_wr;
+    if (len == 0) {
+      return 0;
+    }
 
+    struct ibv_sge sge;
     std::memset(&sge, 0, sizeof(sge));
     sge.addr = reinterpret_cast<uintptr_t>(buf);
     sge.length = static_cast<uint32_t>(len);
     sge.lkey = lkey;
 
+    struct ibv_send_wr wr, *bad_wr;
     std::memset(&wr, 0, sizeof(wr));
     wr.sg_list = &sge;
     wr.num_sge = 1;
