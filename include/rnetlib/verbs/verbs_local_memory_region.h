@@ -14,7 +14,7 @@ namespace verbs {
 
 class VerbsLocalMemoryRegion : public LocalMemoryRegion {
  public:
-  static std::unique_ptr<LocalMemoryRegion> Register(struct ibv_pd *pd, void *addr, size_t length, int type) {
+  static LocalMemoryRegion::ptr Register(struct ibv_pd *pd, void *addr, size_t length, int type) {
     if (length == 0) {
       return std::unique_ptr<LocalMemoryRegion>(new VerbsLocalMemoryRegion(nullptr));
     }

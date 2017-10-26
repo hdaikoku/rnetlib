@@ -131,39 +131,28 @@ class VerbsChannel : public Channel {
     return 0;
   }
 
-  size_t SendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
-    // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
-    size_t offset = 0, len = 0;
-    for (const auto &mr : vec) {
-      len += mr->GetLength();
-    }
-    std::unique_ptr<char[]> buf(new char[len]);
-    for (const auto &mr : vec) {
-      std::memcpy(buf.get() + offset, mr->GetAddr(), mr->GetLength());
-      offset += mr->GetLength();
+  size_t SendV(const std::vector<LocalMemoryRegion::ptr> &vec) const override {
+    // simple & straightforward implementation for now
+    // FIXME: scatter/gather feature of IBV can (possibly) be used here
+    size_t sent = 0;
+
+    for (const auto &lmr : vec) {
+      sent += Send(*lmr);
     }
 
-    return Send(buf.get(), len);
+    return sent;
   }
 
-  size_t RecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec) const override {
-    // we cannot use the Scatter/Gather function of IBV here because we use pre-allocated buffers for Send/Recv.
-    size_t offset = 0, len = 0;
-    for (const auto &mr : vec) {
-      len += mr->GetLength();
-    }
-    std::unique_ptr<char[]> buf(new char[len]);
-    if (Recv(buf.get(), len) != len) {
-      // error
-      return 0;
+  size_t RecvV(const std::vector<LocalMemoryRegion::ptr> &vec) const override {
+    // simple & straightforward implementation for now
+    // FIXME: scatter/gather feature of IBV can (possibly) be used here
+    size_t recvd = 0;
+
+    for (const auto &lmr : vec) {
+      recvd += Recv(*lmr);
     }
 
-    for (const auto &mr : vec) {
-      std::memcpy(mr->GetAddr(), buf.get() + offset, mr->GetLength());
-      offset += mr->GetLength();
-    }
-
-    return len;
+    return recvd;
   }
 
   size_t ISendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
@@ -237,7 +226,7 @@ class VerbsChannel : public Channel {
     struct ibv_recv_wr wr_;
     const uint32_t buflen_;
     const std::unique_ptr<char[]> buf_;
-    const std::unique_ptr<LocalMemoryRegion> mr_;
+    const LocalMemoryRegion::ptr mr_;
   };
 
  private:
