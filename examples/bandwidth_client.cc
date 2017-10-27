@@ -3,7 +3,7 @@
 
 #include <rnetlib/rnetlib.h>
 
-void do_pingpong(const rnetlib::Channel &channel, size_t msg_len) {
+void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 

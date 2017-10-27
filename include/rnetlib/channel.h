@@ -17,35 +17,35 @@ class Channel {
 
   virtual bool SetNonBlocking(bool non_blocking) = 0;
 
-  virtual size_t Send(void *buf, size_t len) const = 0;
+  virtual size_t Send(void *buf, size_t len) = 0;
 
-  virtual size_t Recv(void *buf, size_t len) const = 0;
+  virtual size_t Recv(void *buf, size_t len) = 0;
 
-  virtual size_t Send(const LocalMemoryRegion &mem) const = 0;
+  virtual size_t Send(const LocalMemoryRegion &mem) = 0;
 
-  virtual size_t Recv(const LocalMemoryRegion &mem) const = 0;
+  virtual size_t Recv(const LocalMemoryRegion &mem) = 0;
 
   virtual size_t ISend(void *buf, size_t len, EventLoop &evloop) = 0;
 
   virtual size_t IRecv(void *buf, size_t len, EventLoop &evloop) = 0;
 
-  virtual size_t SendV(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
+  virtual size_t SendV(const std::vector<LocalMemoryRegion::ptr> &vec) = 0;
 
-  virtual size_t RecvV(const std::vector<LocalMemoryRegion::ptr> &vec) const = 0;
+  virtual size_t RecvV(const std::vector<LocalMemoryRegion::ptr> &vec) = 0;
 
   virtual size_t ISendV(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
 
   virtual size_t IRecvV(const std::vector<LocalMemoryRegion::ptr> &vec, EventLoop &evloop) = 0;
 
-  virtual size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const = 0;
+  virtual size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) = 0;
 
-  virtual size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const = 0;
+  virtual size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) = 0;
 
   virtual LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const = 0;
 
-  virtual void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) const = 0;
+  virtual void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) = 0;
 
-  virtual void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) const = 0;
+  virtual void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) = 0;
 };
 
 } // namespace rnetlib

@@ -21,14 +21,13 @@ class VerbsCommon {
   static void SetInitAttr(struct ibv_qp_init_attr &init_attr) {
     std::memset(&init_attr, 0, sizeof(init_attr));
     init_attr.qp_type = IBV_QPT_RC;
-    init_attr.cap.max_send_sge = init_attr.cap.max_recv_sge = 32;
-    init_attr.cap.max_send_wr = 1;
     // to make Receive WR constantly available in QP,
     // max_recv_wr must be bigger than 2
-    init_attr.cap.max_recv_wr = 4;
+    init_attr.cap.max_send_wr = init_attr.cap.max_recv_wr = 1024;
+    init_attr.cap.max_send_sge = init_attr.cap.max_recv_sge = 32;
     init_attr.sq_sig_all = 1;
     // TODO: max_inline_data should be user-configurable
-    init_attr.cap.max_inline_data = 16;
+    init_attr.cap.max_inline_data = 32;
   }
 
   static RDMACommID NewRDMACommID(const char *addr, uint16_t port, int flags) {

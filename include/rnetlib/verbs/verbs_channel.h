@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <infiniband/verbs.h>
 
+#include <cassert>
 #include <cstring>
 
 #include "rnetlib/channel.h"
@@ -18,18 +19,20 @@ namespace verbs {
 
 class VerbsChannel : public Channel {
  public:
-  explicit VerbsChannel(VerbsCommon::RDMACommID id) : id_(std::move(id)), recv_buf_(IBV_RCVBUF, id_->pd) {
+  explicit VerbsChannel(VerbsCommon::RDMACommID id)
+      : id_(std::move(id)), num_recv_wr_(0), num_send_wr_(0), recv_buf_(IBV_RCVBUF, id_->pd) {
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr;
 
     ibv_query_qp(id_->qp, &attr, 0, &init_attr);
     max_inline_data_ = attr.cap.max_inline_data;
-    max_send_wr_ = attr.cap.max_send_wr;
-    max_send_sge_ = attr.cap.max_send_sge;
-    max_recv_sge_ = attr.cap.max_recv_sge;
+    // max_recv_wr has to be at least twice as big as max_send_wr
+    // so that Recv Queue constantly keeps "max_send_wr" requests for incoming requests.
+    max_recv_wr_ = std::min(attr.cap.max_send_wr, attr.cap.max_recv_wr);
+    max_send_wr_ = max_recv_wr_ / 2;
+    max_recv_sge_ = max_send_sge_ = std::min(attr.cap.max_send_sge, attr.cap.max_recv_sge);
 
-    struct ibv_recv_wr *bad_wr;
-    ibv_post_recv(id_->qp, const_cast<struct ibv_recv_wr *>(recv_buf_.GetWorkRequestPtr()), &bad_wr);
+    PostRecv(recv_buf_.GetSGEPtr(), 1);
   }
 
   virtual ~VerbsChannel() {
@@ -42,37 +45,40 @@ class VerbsChannel : public Channel {
     return true;
   }
 
-  size_t Send(void *buf, size_t len) const override {
+  size_t Send(void *buf, size_t len) override {
     auto mr = RegisterMemory(buf, len, MR_LOCAL_READ);
     return Send(*mr);
   }
 
-  size_t Recv(void *buf, size_t len) const override {
+  size_t Recv(void *buf, size_t len) override {
     auto mr = RegisterMemory(buf, len, MR_LOCAL_WRITE);
     return Recv(*mr);
   }
 
-  size_t Send(const LocalMemoryRegion &mem) const override {
-    size_t sending_len, offset = 0;
+  size_t Send(const LocalMemoryRegion &mem) override {
     auto buf = mem.GetAddr();
     auto len = mem.GetLength();
+    struct ibv_sge sge;
 
-    sending_len = (len < IBV_RCVBUF) ? len : IBV_RCVBUF;
-    offset = PostSend(IBV_WR_SEND, buf, sending_len, mem.GetLKey(), nullptr, 0);
-    if (offset != sending_len) {
+    auto offset = (len > IBV_RCVBUF) ? IBV_RCVBUF : len;
+    sge = {reinterpret_cast<uintptr_t>(buf), offset, mem.GetLKey()};
+    if (PostSend(IBV_WR_SEND, &sge, 1, nullptr, 0) != 1 || !PollSendCQ(num_send_wr_)) {
       // error
       return 0;
     }
 
     if (len > offset) {
-      sending_len = len - offset;
-      offset += PostSend(IBV_WR_SEND, buf + offset, sending_len, mem.GetLKey(), nullptr, 0);
+      sge = {reinterpret_cast<uintptr_t>(buf + offset), len - offset, mem.GetLKey()};
+      if (PostSend(IBV_WR_SEND, &sge, 1, nullptr, 0) != 1 || !PollSendCQ(num_send_wr_)) {
+        // error
+        return 0;
+      }
     }
 
-    return offset;
+    return len;
   }
 
-  size_t Recv(const LocalMemoryRegion &mem) const override {
+  size_t Recv(const LocalMemoryRegion &mem) override {
     if (mem.GetLength() == 0) {
       return 0;
     }
@@ -90,25 +96,25 @@ class VerbsChannel : public Channel {
       sge.length = static_cast<uint32_t>(len - IBV_RCVBUF);
       sge.lkey = mem.GetLKey();
 
-      std::memset(&wr, 0, sizeof(wr));
-      wr.sg_list = &sge;
-      wr.num_sge = 1;
-
-      ibv_post_recv(id_->qp, &wr, &bad_wr);
+      if (PostRecv(&sge, 1) != 1) {
+        return offset;
+      }
     }
 
     // refill a recv request for a header.
-    ibv_post_recv(id_->qp, const_cast<struct ibv_recv_wr *>(recv_buf_.GetWorkRequestPtr()), &bad_wr);
+    if (PostRecv(recv_buf_.GetSGEPtr(), 1) != 1) {
+      return offset;
+    }
 
     // receive the header part.
-    if (!PollCQ(id_->recv_cq)) {
+    if (!PollRecvCQ(1)) {
       // error
       return offset;
     }
 
     if (len > IBV_RCVBUF) {
       // receive the body part.
-      if (!PollCQ(id_->recv_cq)) {
+      if (!PollRecvCQ(1)) {
         // error
         return offset;
       }
@@ -131,28 +137,112 @@ class VerbsChannel : public Channel {
     return 0;
   }
 
-  size_t SendV(const std::vector<LocalMemoryRegion::ptr> &vec) const override {
-    // simple & straightforward implementation for now
-    // FIXME: scatter/gather feature of IBV can (possibly) be used here
-    size_t sent = 0;
+  size_t SendV(const std::vector<LocalMemoryRegion::ptr> &vec) override {
+    assert(num_send_wr_ == 0);
 
-    for (const auto &lmr : vec) {
-      sent += Send(*lmr);
+    size_t sent_len = 0;
+    std::vector<struct ibv_sge> sges;
+    sges.reserve(vec.size());
+
+    for (auto i = 0; i < vec.size(); i++) {
+      auto len = vec[i]->GetLength();
+      if (len == 0) {
+        continue;
+      }
+      auto addr = vec[i]->GetAddr();
+      auto lkey = vec[i]->GetLKey();
+
+      if (sent_len == 0) {
+        // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
+        auto sending_len = (len > IBV_RCVBUF) ? IBV_RCVBUF : len;
+        struct ibv_sge sge = {reinterpret_cast<uintptr_t>(addr), sending_len, lkey};
+        if (PostSend(IBV_WR_SEND, &sge, 1, nullptr, 0) != 1) {
+          // error
+          return 0;
+        }
+        if (!PollSendCQ(1)) {
+          return 0;
+        }
+        sent_len += sending_len;
+
+        len -= sending_len;
+        if (len == 0) {
+          continue;
+        }
+        addr = addr + sending_len;
+      }
+
+      sges.push_back({reinterpret_cast<uintptr_t>(addr), len, lkey});
+      sent_len += len;
     }
 
-    return sent;
+    auto num_sges = static_cast<int>(sges.size());
+    if (PostSend(IBV_WR_SEND, sges.data(), num_sges, nullptr, 0) != num_sges) {
+      // error
+      return 0;
+    }
+
+    return PollSendCQ(num_send_wr_) ? sent_len : 0;
   }
 
-  size_t RecvV(const std::vector<LocalMemoryRegion::ptr> &vec) const override {
-    // simple & straightforward implementation for now
-    // FIXME: scatter/gather feature of IBV can (possibly) be used here
-    size_t recvd = 0;
+  size_t RecvV(const std::vector<LocalMemoryRegion::ptr> &vec) override {
+    assert(num_recv_wr_ == 1);
 
-    for (const auto &lmr : vec) {
-      recvd += Recv(*lmr);
+    size_t recvd_len = 0;
+    std::vector<struct ibv_sge> sges;
+    sges.reserve(vec.size());
+    void *head_sge_addr = nullptr;
+    size_t head_sge_len = 0;
+
+    for (auto i = 0; i < vec.size(); i++) {
+      auto len = vec[i]->GetLength();
+      if (len == 0) {
+        continue;
+      }
+      auto addr = vec[i]->GetAddr();
+      auto lkey = vec[i]->GetLKey();
+
+      if (recvd_len == 0) {
+        // this is the very first part of the transfer, receive it with the pre-allocated ReceiveBuffer.
+        head_sge_addr = addr;
+        if (len > IBV_RCVBUF) {
+          // the first SGE won't fit in the the pre-allocated ReceiveBuffer
+          head_sge_len = IBV_RCVBUF;
+          len -= IBV_RCVBUF;
+          addr = addr + IBV_RCVBUF;
+          recvd_len += IBV_RCVBUF;
+        } else {
+          head_sge_len = len;
+          recvd_len += len;
+          continue;
+        }
+      }
+
+      sges.push_back({reinterpret_cast<uintptr_t>(addr), len, lkey});
+      recvd_len += len;
     }
 
-    return recvd;
+    auto num_sges = static_cast<int>(sges.size());
+    if (PostRecv(sges.data(), num_sges) != num_sges) {
+      // error
+      return 0;
+    }
+
+    // refill a recv request for a header.
+    if (PostRecv(recv_buf_.GetSGEPtr(), 1) != 1) {
+      // error
+      return 0;
+    }
+
+    if (!PollRecvCQ(num_recv_wr_ - 1)) {
+      // error
+      return 0;
+    }
+
+    // copy the received header part to the user buffer.
+    recv_buf_.Read(head_sge_addr, head_sge_len);
+
+    return recvd_len;
   }
 
   size_t ISendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
@@ -165,21 +255,33 @@ class VerbsChannel : public Channel {
     return 0;
   }
 
-  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
-    return PostSend(IBV_WR_RDMA_WRITE, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
-                    reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey);
+  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) override {
+    struct ibv_sge sge = {reinterpret_cast<uintptr_t>(local_mem.GetAddr()), local_mem.GetLength(), local_mem.GetLKey()};
+
+    if (PostSend(IBV_WR_RDMA_WRITE, &sge, 1, reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey) != 1) {
+      // error
+      return 0;
+    }
+
+    return PollSendCQ(num_send_wr_) ? local_mem.GetLength() : 0;
   }
 
-  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
-    return PostSend(IBV_WR_RDMA_READ, local_mem.GetAddr(), local_mem.GetLength(), local_mem.GetLKey(),
-                    reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey);
+  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) override {
+    struct ibv_sge sge = {reinterpret_cast<uintptr_t>(local_mem.GetAddr()), local_mem.GetLength(), local_mem.GetLKey()};
+
+    if (PostSend(IBV_WR_RDMA_READ, &sge, 1, reinterpret_cast<void *>(remote_mem.addr), remote_mem.rkey) != 1) {
+      // error
+      return 0;
+    }
+
+    return PollSendCQ(num_send_wr_) ? local_mem.GetLength() : 0;
   }
 
   std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
     return VerbsLocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
 
-  void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) const override {
+  void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) override {
     std::vector<RemoteMemoryRegion> rmrs;
     rmrs.reserve(len);
 
@@ -190,7 +292,7 @@ class VerbsChannel : public Channel {
     Send(rmrs.data(), sizeof(RemoteMemoryRegion) * rmrs.size());
   }
 
-  void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) const override {
+  void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) override {
     Recv(rmr, sizeof(RemoteMemoryRegion) * len);
   }
 
@@ -207,9 +309,6 @@ class VerbsChannel : public Channel {
       sge_.addr = reinterpret_cast<uintptr_t>(mr_->GetAddr());
       sge_.length = static_cast<uint32_t>(mr_->GetLength());
       sge_.lkey = mr_->GetLKey();
-      std::memset(&wr_, 0, sizeof(struct ibv_recv_wr));
-      wr_.sg_list = &sge_;
-      wr_.num_sge = 1;
     }
 
     size_t Read(void *addr, size_t len) const {
@@ -219,11 +318,10 @@ class VerbsChannel : public Channel {
       return cpylen;
     }
 
-    const struct ibv_recv_wr *GetWorkRequestPtr() const { return &wr_; }
+    struct ibv_sge *GetSGEPtr() { return &sge_; }
 
    private:
     struct ibv_sge sge_;
-    struct ibv_recv_wr wr_;
     const uint32_t buflen_;
     const std::unique_ptr<char[]> buf_;
     const LocalMemoryRegion::ptr mr_;
@@ -232,51 +330,121 @@ class VerbsChannel : public Channel {
  private:
   VerbsCommon::RDMACommID id_;
   uint32_t max_inline_data_;
+  uint32_t max_recv_wr_;
   uint32_t max_send_wr_;
-  uint32_t max_send_sge_;
   uint32_t max_recv_sge_;
+  uint32_t max_send_sge_;
+  uint32_t num_recv_wr_;
+  uint32_t num_send_wr_;
   RecvBuffer recv_buf_;
 
-  size_t PostSend(enum ibv_wr_opcode opcode, void *buf, size_t len, uint32_t lkey, void *raddr, uint32_t rkey) const {
-    if (len == 0) {
-      return 0;
-    }
-
-    struct ibv_sge sge;
-    std::memset(&sge, 0, sizeof(sge));
-    sge.addr = reinterpret_cast<uintptr_t>(buf);
-    sge.length = static_cast<uint32_t>(len);
-    sge.lkey = lkey;
-
+  int PostSend(enum ibv_wr_opcode opcode, struct ibv_sge *sg_list, int num_sges, void *raddr, uint32_t rkey) {
+    int offset = 0;
+    uint32_t sending_len = 0;
     struct ibv_send_wr wr, *bad_wr;
-    std::memset(&wr, 0, sizeof(wr));
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
-    wr.opcode = opcode;
-    if (opcode == IBV_WR_RDMA_READ || opcode == IBV_WR_RDMA_WRITE) {
-      wr.wr.rdma.rkey = rkey;
-      wr.wr.rdma.remote_addr = reinterpret_cast<uintptr_t>(raddr);
-    }
-    if ((opcode == IBV_WR_SEND || opcode == IBV_WR_RDMA_WRITE) && len <= max_inline_data_) {
-      wr.send_flags |= IBV_SEND_INLINE;
+
+    while (offset < num_sges) {
+      int num_sending_sges = (num_sges - offset) > max_send_sge_ ? max_send_sge_ : (num_sges - offset);
+
+      std::memset(&wr, 0, sizeof(wr));
+      wr.sg_list = sg_list + offset;
+      wr.num_sge = num_sending_sges;
+      wr.opcode = opcode;
+
+      sending_len = 0;
+      for (int i = 0; i < num_sending_sges; i++) {
+        sending_len += sg_list[offset + i].length;
+      }
+
+      if ((opcode == IBV_WR_SEND || opcode == IBV_WR_RDMA_WRITE) && sending_len <= max_inline_data_) {
+        wr.send_flags |= IBV_SEND_INLINE;
+      }
+      if (opcode == IBV_WR_RDMA_READ || opcode == IBV_WR_RDMA_WRITE) {
+        wr.wr.rdma.rkey = rkey;
+        wr.wr.rdma.remote_addr = reinterpret_cast<uintptr_t>(raddr);
+      }
+
+      if (num_send_wr_ == max_send_wr_) {
+        // FIXME: this might block
+        if (!PollSendCQ(max_send_wr_)) {
+          // error
+          return offset;
+        }
+      }
+
+      if (ibv_post_send(id_->qp, &wr, &bad_wr)) {
+        // error
+        return 0;
+      }
+      num_send_wr_++;
+      offset += num_sending_sges;
     }
 
-    if (ibv_post_send(id_->qp, &wr, &bad_wr)) {
-      // error
-      return 0;
-    }
-
-    return PollCQ(id_->send_cq) ? len : 0;
+    return offset;
   }
 
-  bool PollCQ(struct ibv_cq *cq) const {
+  int PostRecv(struct ibv_sge *sg_list, int num_sges) {
+    int offset = 0;
+    struct ibv_recv_wr wr, *bad_wr;
+    bool first = true;
+
+    while (offset < num_sges) {
+      int num_recving_sges = (num_sges - offset) > max_recv_sge_ ? max_recv_sge_ : (num_sges - offset);
+
+      std::memset(&wr, 0, sizeof(wr));
+      wr.sg_list = sg_list + offset;
+      wr.num_sge = num_recving_sges;
+
+      if (num_recv_wr_ == (first ? max_send_wr_ + 1 : max_recv_wr_)) {
+        // FIXME: this might block
+        if (!PollRecvCQ(first ? 1 : max_send_wr_)) {
+          // error
+          return offset;
+        }
+        first = false;
+      }
+
+      if (ibv_post_recv(id_->qp, &wr, &bad_wr)) {
+        // error
+        return 0;
+      }
+
+      num_recv_wr_++;
+      offset += num_recving_sges;
+    }
+
+    return offset;
+  }
+
+  bool PollSendCQ(uint32_t num_cqes) {
+    auto polled = PollCQ(id_->send_cq, num_cqes);
+    num_send_wr_ -= polled;
+    return (polled == num_cqes);
+  }
+
+  bool PollRecvCQ(uint32_t num_cqes) {
+    auto polled = PollCQ(id_->recv_cq, num_cqes);
+    num_recv_wr_ -= polled;
+    return (polled == num_cqes);
+  }
+
+  uint32_t PollCQ(struct ibv_cq *cq, uint32_t num_cqes) {
     int ret = 0;
+    uint32_t num_polled = 0;
     struct ibv_wc wc;
 
-    // poll
-    while ((ret = ibv_poll_cq(cq, 1, &wc)) == 0);
+    for (uint32_t i = 0; i < num_cqes; i++) {
+      // poll
+      while ((ret = ibv_poll_cq(cq, 1, &wc)) == 0);
 
-    return (ret < 0) ? false : (wc.status == IBV_WC_SUCCESS);
+      if (ret < 0 || wc.status != IBV_WC_SUCCESS) {
+        // error
+        continue;
+      }
+      num_polled++;
+    }
+
+    return num_polled;
   }
 };
 

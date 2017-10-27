@@ -30,7 +30,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return SocketCommon::SetNonBlocking(non_blocking);
   }
 
-  size_t Send(void *buf, size_t len) const override {
+  size_t Send(void *buf, size_t len) override {
     struct iovec iov;
     iov.iov_base = buf;
     iov.iov_len = len;
@@ -38,7 +38,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (SendIOV(&iov, 1) == 1) ? len : 0;
   }
 
-  size_t Recv(void *buf, size_t len) const override {
+  size_t Recv(void *buf, size_t len) override {
     struct iovec iov;
     iov.iov_base = buf;
     iov.iov_len = len;
@@ -46,11 +46,11 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (RecvIOV(&iov, 1) == 1) ? len : 0;
   }
 
-  size_t Send(const LocalMemoryRegion &mem) const override {
+  size_t Send(const LocalMemoryRegion &mem) override {
     return Send(mem.GetAddr(), mem.GetLength());
   }
 
-  size_t Recv(const LocalMemoryRegion &mem) const override {
+  size_t Recv(const LocalMemoryRegion &mem) override {
     return Recv(mem.GetAddr(), mem.GetLength());
   }
 
@@ -68,7 +68,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return len;
   }
 
-  size_t SendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+  size_t SendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) override {
     std::vector<struct iovec> iov;
     size_t total_len = 0;
     for (const auto &mr : mrs) {
@@ -79,7 +79,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (SendIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
   }
 
-  size_t RecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) const override {
+  size_t RecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) override {
     std::vector<struct iovec> iov;
     size_t total_len = 0;
     for (const auto &mr : mrs) {
@@ -112,11 +112,11 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return vec.size();
   }
 
-  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
+  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) override {
     return Send(local_mem.GetAddr(), local_mem.GetLength());
   }
 
-  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) const override {
+  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) override {
     return Recv(local_mem.GetAddr(), local_mem.GetLength());
   }
 
@@ -124,9 +124,9 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return std::unique_ptr<LocalMemoryRegion>(new SocketLocalMemoryRegion(addr, len));
   }
 
-  void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) const override {}
+  void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) override {}
 
-  void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) const override {}
+  void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) override {}
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
