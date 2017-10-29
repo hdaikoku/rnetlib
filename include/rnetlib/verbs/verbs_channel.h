@@ -29,7 +29,7 @@ class VerbsChannel : public Channel {
     // max_recv_wr has to be at least twice as big as max_send_wr
     // so that Recv Queue constantly keeps "max_send_wr" requests for incoming requests.
     max_recv_wr_ = std::min(attr.cap.max_send_wr, attr.cap.max_recv_wr);
-    max_send_wr_ = max_recv_wr_ / 2;
+    max_send_wr_ = max_recv_wr_ - 1;
     max_recv_sge_ = max_send_sge_ = std::min(attr.cap.max_send_sge, attr.cap.max_recv_sge);
 
     PostRecv(recv_buf_.GetSGEPtr(), 1);
@@ -366,7 +366,7 @@ class VerbsChannel : public Channel {
 
       if (num_send_wr_ == max_send_wr_) {
         // FIXME: this might block
-        if (!PollSendCQ(max_send_wr_)) {
+        if (!PollSendCQ(1)) {
           // error
           return offset;
         }
@@ -386,7 +386,6 @@ class VerbsChannel : public Channel {
   int PostRecv(struct ibv_sge *sg_list, int num_sges) {
     int offset = 0;
     struct ibv_recv_wr wr, *bad_wr;
-    bool first = true;
 
     while (offset < num_sges) {
       int num_recving_sges = (num_sges - offset) > max_recv_sge_ ? max_recv_sge_ : (num_sges - offset);
@@ -395,13 +394,12 @@ class VerbsChannel : public Channel {
       wr.sg_list = sg_list + offset;
       wr.num_sge = num_recving_sges;
 
-      if (num_recv_wr_ == (first ? max_send_wr_ + 1 : max_recv_wr_)) {
+      if (num_recv_wr_ == max_recv_wr_) {
         // FIXME: this might block
-        if (!PollRecvCQ(first ? 1 : max_send_wr_)) {
+        if (!PollRecvCQ(1)) {
           // error
           return offset;
         }
-        first = false;
       }
 
       if (ibv_post_recv(id_->qp, &wr, &bad_wr)) {
