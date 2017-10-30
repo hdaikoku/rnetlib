@@ -104,11 +104,19 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
+    return WriteV(&lmr, &rmr, 1);
+  }
+
+  size_t Read(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
+    return ReadV(&lmr, &rmr, 1);
+  }
+
+  size_t WriteV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) override {
     // TODO: implement this method.
     return 0;
   }
 
-  size_t Read(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
+  size_t ReadV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) override {
     // TODO: implement this method.
     return 0;
   }

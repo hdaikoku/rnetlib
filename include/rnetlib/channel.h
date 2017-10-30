@@ -39,6 +39,10 @@ class Channel {
 
   virtual size_t Read(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) = 0;
 
+  virtual size_t WriteV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) = 0;
+
+  virtual size_t ReadV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) = 0;
+
   virtual LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const = 0;
 
   virtual void SynRemoteMemoryRegionV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) = 0;

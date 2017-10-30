@@ -190,25 +190,51 @@ class VerbsChannel : public Channel {
   }
 
   size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
-    struct ibv_sge sge = {reinterpret_cast<uintptr_t>(lmr->GetAddr()), lmr->GetLength(), lmr->GetLKey()};
-
-    if (PostSend(IBV_WR_RDMA_WRITE, &sge, 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
-      // error
-      return 0;
-    }
-
-    return PollSendCQ(num_send_wr_) ? lmr->GetLength() : 0;
+    return WriteV(&lmr, &rmr, 1);
   }
 
   size_t Read(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
-    struct ibv_sge sge = {reinterpret_cast<uintptr_t>(lmr->GetAddr()), lmr->GetLength(), lmr->GetLKey()};
+    return ReadV(&lmr, &rmr, 1);
+  }
 
-    if (PostSend(IBV_WR_RDMA_READ, &sge, 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
-      // error
-      return 0;
+  size_t WriteV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) override {
+    struct ibv_sge sge;
+    size_t len, total_len = 0;
+
+    for (size_t i = 0; i < cnt; i++) {
+      len = lmr[i]->GetLength();
+      if (len > 0) {
+        assert(len == rmr[i].length);
+        sge = {reinterpret_cast<uintptr_t>(lmr[i]->GetAddr()), len, lmr[i]->GetLKey()};
+        if (PostSend(IBV_WR_RDMA_WRITE, &sge, 1, reinterpret_cast<void *>(rmr[i].addr), rmr[i].rkey) != 1) {
+          // error
+          break;
+        }
+        total_len += len;
+      }
     }
 
-    return PollSendCQ(num_send_wr_) ? lmr->GetLength() : 0;
+    return PollSendCQ(num_send_wr_) ? total_len : 0;
+  }
+
+  size_t ReadV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) override {
+    struct ibv_sge sge;
+    size_t len, total_len = 0;
+
+    for (size_t i = 0; i < cnt; i++) {
+      len = lmr[i]->GetLength();
+      if (len > 0) {
+        assert(len == rmr[i].length);
+        sge = {reinterpret_cast<uintptr_t>(lmr[i]->GetAddr()), len, lmr[i]->GetLKey()};
+        if (PostSend(IBV_WR_RDMA_READ, &sge, 1, reinterpret_cast<void *>(rmr[i].addr), rmr[i].rkey) != 1) {
+          // error
+          break;
+        }
+        total_len += len;
+      }
+    }
+
+    return PollSendCQ(num_send_wr_) ? total_len : 0;
   }
 
   LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const override {
@@ -302,13 +328,13 @@ class VerbsChannel : public Channel {
         // FIXME: this might block
         if (!PollSendCQ(1)) {
           // error
-          return offset;
+          break;
         }
       }
 
       if (ibv_post_send(id_->qp, &wr, &bad_wr)) {
         // error
-        return 0;
+        break;
       }
       num_send_wr_++;
       offset += num_sending_sges;
@@ -332,13 +358,13 @@ class VerbsChannel : public Channel {
         // FIXME: this might block
         if (!PollRecvCQ(1)) {
           // error
-          return offset;
+          break;
         }
       }
 
       if (ibv_post_recv(id_->qp, &wr, &bad_wr)) {
         // error
-        return 0;
+        break;
       }
 
       num_recv_wr_++;
