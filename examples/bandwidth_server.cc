@@ -9,7 +9,7 @@ void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
   auto local_mem = channel.RegisterMemory(msg.get(), msg_len, MR_LOCAL_WRITE);
 
   for (int i = 0; i < 5000; i++) {
-    if (channel.Recv(*local_mem) != msg_len) {
+    if (channel.Recv(local_mem) != msg_len) {
       std::cerr << "ERROR: recv" << std::endl;
       return;
     }

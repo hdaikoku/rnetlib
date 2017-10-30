@@ -11,7 +11,7 @@ void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
 
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < 5000; i++) {
-    if (channel.Send(*local_mem) != msg_len) {
+    if (channel.Send(local_mem) != msg_len) {
       std::cerr << "ERROR: send" << std::endl;
       return;
     }

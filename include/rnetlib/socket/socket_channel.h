@@ -1,13 +1,14 @@
 #ifndef RNETLIB_SOCKET_SOCKET_CHANNEL_H_
 #define RNETLIB_SOCKET_SOCKET_CHANNEL_H_
 
-#include <limits.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
+#include <climits>
 #include <string>
+#include <vector>
 
 #include "rnetlib/channel.h"
 #include "rnetlib/event_handler.h"
@@ -31,102 +32,94 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t Send(void *buf, size_t len) override {
-    struct iovec iov;
-    iov.iov_base = buf;
-    iov.iov_len = len;
-
-    return (SendIOV(&iov, 1) == 1) ? len : 0;
+    return Send(RegisterMemory(buf, len, MR_LOCAL_READ));
   }
 
   size_t Recv(void *buf, size_t len) override {
-    struct iovec iov;
-    iov.iov_base = buf;
-    iov.iov_len = len;
-
-    return (RecvIOV(&iov, 1) == 1) ? len : 0;
+    return Recv(RegisterMemory(buf, len, MR_LOCAL_WRITE));
   }
 
-  size_t Send(const LocalMemoryRegion &mem) override {
-    return Send(mem.GetAddr(), mem.GetLength());
+  size_t Send(const LocalMemoryRegion::ptr &lmr) override {
+    return SendV(&lmr, 1);
   }
 
-  size_t Recv(const LocalMemoryRegion &mem) override {
-    return Recv(mem.GetAddr(), mem.GetLength());
+  size_t Recv(const LocalMemoryRegion::ptr &lmr) override {
+    return RecvV(&lmr, 1);
   }
 
   size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
-    // FIXME: check if this sock_fd is set to non-blocking mode.
-    send_iov_.push_back({buf, len});
-    evloop.AddHandler(*this);
-    return len;
+    auto lmr = RegisterMemory(buf, len, MR_LOCAL_READ);
+    return ISendV(&lmr, 1, evloop);
   }
 
   size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
-    // FIXME: check if this sock_fd is set to non-blocking mode.
-    recv_iov_.push_back({buf, len});
-    evloop.AddHandler(*this);
-    return len;
+    auto lmr = RegisterMemory(buf, len, MR_LOCAL_WRITE);
+    return IRecvV(&lmr, 1, evloop);
   }
 
-  size_t SendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) override {
-    std::vector<struct iovec> iov;
+  size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
+    std::vector<struct iovec> iov(lmrcnt);
     size_t total_len = 0;
-    for (const auto &mr : mrs) {
-      total_len += mr->GetLength();
-      iov.push_back({mr->GetAddr(), mr->GetLength()});
+    for (size_t i = 0; i < lmrcnt; i++) {
+      total_len += lmr[i]->GetLength();
+      iov[i] = {lmr[i]->GetAddr(), lmr[i]->GetLength()};
     }
 
-    return (SendIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
+    return (SendIOV(iov.data(), iov.size()) == iov.size()) ? total_len : 0;
   }
 
-  size_t RecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &mrs) override {
-    std::vector<struct iovec> iov;
+  size_t RecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
+    std::vector<struct iovec> iov(lmrcnt);
     size_t total_len = 0;
-    for (const auto &mr : mrs) {
-      total_len += mr->GetLength();
-      iov.push_back({mr->GetAddr(), mr->GetLength()});
+    for (size_t i = 0; i < lmrcnt; i++) {
+      total_len += lmr[i]->GetLength();
+      iov[i] = {lmr[i]->GetAddr(), lmr[i]->GetLength()};
     }
 
-    return (RecvIOV(iov.data(), iov.size())) == iov.size() ? total_len : 0;
+    return (RecvIOV(iov.data(), iov.size()) == iov.size()) ? total_len : 0;
   }
 
-  size_t ISendV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+  size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    if (!vec.empty()) {
-      for (const auto &mr : vec) {
-        send_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+    if (lmrcnt > 0) {
+      for (size_t i = 0; i < lmrcnt; i++) {
+        send_iov_.push_back({lmr[i]->GetAddr(), lmr[i]->GetLength()});
       }
       evloop.AddHandler(*this);
     }
-    return vec.size();
+
+    return lmrcnt;
   }
 
-  size_t IRecvV(const std::vector<std::unique_ptr<LocalMemoryRegion>> &vec, EventLoop &evloop) override {
+  size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    if (!vec.empty()) {
-      for (const auto &mr : vec) {
-        recv_iov_.push_back({mr->GetAddr(), mr->GetLength()});
+    if (lmrcnt > 0) {
+      for (size_t i = 0; i < lmrcnt; i++) {
+        recv_iov_.push_back({lmr[i]->GetAddr(), lmr[i]->GetLength()});
       }
       evloop.AddHandler(*this);
     }
-    return vec.size();
+
+    return lmrcnt;
   }
 
-  size_t Write(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) override {
-    return Send(local_mem.GetAddr(), local_mem.GetLength());
+  size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
+    // TODO: implement this method.
+    return 0;
   }
 
-  size_t Read(const LocalMemoryRegion &local_mem, const RemoteMemoryRegion &remote_mem) override {
-    return Recv(local_mem.GetAddr(), local_mem.GetLength());
+  size_t Read(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
+    // TODO: implement this method.
+    return 0;
   }
 
-  std::unique_ptr<LocalMemoryRegion> RegisterMemory(void *addr, size_t len, int type) const override {
-    return std::unique_ptr<LocalMemoryRegion>(new SocketLocalMemoryRegion(addr, len));
+  LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const override {
+    return LocalMemoryRegion::ptr(new SocketLocalMemoryRegion(addr, len));
   }
 
-  void SynRemoteMemoryRegions(const LocalMemoryRegion::ptr *lmr, size_t len) override {}
+  void SynRemoteMemoryRegionV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {}
 
-  void AckRemoteMemoryRegions(RemoteMemoryRegion *rmr, size_t len) override {}
+  void AckRemoteMemoryRegionV(RemoteMemoryRegion *rmr, size_t rmrcnt) override {}
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
@@ -156,10 +149,10 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   short GetEventType() const override {
     short type = 0;
 
-    if (send_iov_.size() > 0) {
+    if (!send_iov_.empty()) {
       type |= POLLOUT;
     }
-    if (recv_iov_.size() > 0) {
+    if (!recv_iov_.empty()) {
       type |= POLLIN;
     }
 

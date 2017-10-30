@@ -20,9 +20,9 @@ int main(int argc, const char **argv) {
     msgs[i] = i;
     mrs.emplace_back(channel->RegisterMemory(&msgs[i], sizeof(msgs[i]), MR_LOCAL_READ | MR_LOCAL_WRITE));
   }
-  channel->SendV(mrs);
+  channel->SendV(mrs.data(), mrs.size());
 
-  channel->RecvV(mrs);
+  channel->RecvV(mrs.data(), mrs.size());
 
   for (int i = 0; i < num_sgs; i++) {
     std::cout << "msgs[" << i << "]: " << msgs[i] << std::endl;
