@@ -32,6 +32,10 @@ class VerbsChannel : public Channel {
     max_send_wr_ = max_recv_wr_ - 1;
     max_recv_sge_ = max_send_sge_ = std::min(attr.cap.max_send_sge, attr.cap.max_recv_sge);
 
+    struct ibv_port_attr port_attr;
+    ibv_query_port(id_->verbs, 1, &port_attr);
+    max_msg_sz_ = port_attr.max_msg_sz;
+
     PostRecv(recv_buf_.GetSGEPtr(), 1);
   }
 
@@ -296,11 +300,11 @@ class VerbsChannel : public Channel {
   uint32_t max_send_sge_;
   uint32_t num_recv_wr_;
   uint32_t num_send_wr_;
+  uint32_t max_msg_sz_;
   RecvBuffer recv_buf_;
 
   int PostSend(enum ibv_wr_opcode opcode, struct ibv_sge *sg_list, int num_sges, void *raddr, uint32_t rkey) {
     int offset = 0;
-    uint32_t sending_len = 0;
     struct ibv_send_wr wr, *bad_wr;
 
     while (offset < num_sges) {
@@ -308,13 +312,22 @@ class VerbsChannel : public Channel {
 
       std::memset(&wr, 0, sizeof(wr));
       wr.sg_list = sg_list + offset;
-      wr.num_sge = num_sending_sges;
       wr.opcode = opcode;
 
-      sending_len = 0;
+      uint32_t sending_len = 0, last_sge_rem = 0;
       for (int i = 0; i < num_sending_sges; i++) {
-        sending_len += sg_list[offset + i].length;
+        wr.num_sge++;
+        if (sending_len + sg_list[offset + i].length > max_msg_sz_) {
+          last_sge_rem = sg_list[offset + i].length - (max_msg_sz_ - sending_len);
+          sg_list[offset + i].length -= last_sge_rem;
+          sending_len = max_msg_sz_;
+          num_sending_sges = i;
+          break;
+        } else {
+          sending_len += sg_list[offset + i].length;
+        }
       }
+      offset += num_sending_sges;
 
       if ((opcode == IBV_WR_SEND || opcode == IBV_WR_RDMA_WRITE) && sending_len <= max_inline_data_) {
         wr.send_flags |= IBV_SEND_INLINE;
@@ -337,7 +350,12 @@ class VerbsChannel : public Channel {
         break;
       }
       num_send_wr_++;
-      offset += num_sending_sges;
+
+      if (last_sge_rem) {
+        sg_list[offset].addr += sg_list[offset].length;
+        raddr += sg_list[offset].length;
+        sg_list[offset].length = last_sge_rem;
+      }
     }
 
     return offset;
@@ -352,7 +370,21 @@ class VerbsChannel : public Channel {
 
       std::memset(&wr, 0, sizeof(wr));
       wr.sg_list = sg_list + offset;
-      wr.num_sge = num_recving_sges;
+
+      uint32_t recving_len = 0, last_sge_rem = 0;
+      for (int i = 0; i < num_recving_sges; i++) {
+        wr.num_sge++;
+        if (recving_len + sg_list[offset + i].length > max_msg_sz_) {
+          last_sge_rem = sg_list[offset + i].length - (max_msg_sz_ - recving_len);
+          sg_list[offset + i].length -= last_sge_rem;
+          recving_len = max_msg_sz_;
+          num_recving_sges = i;
+          break;
+        } else {
+          recving_len += sg_list[offset + i].length;
+        }
+      }
+      offset += num_recving_sges;
 
       if (num_recv_wr_ == max_recv_wr_) {
         // FIXME: this might block
@@ -366,9 +398,12 @@ class VerbsChannel : public Channel {
         // error
         break;
       }
-
       num_recv_wr_++;
-      offset += num_recving_sges;
+
+      if (last_sge_rem) {
+        sg_list[offset].addr += sg_list[offset].length;
+        sg_list[offset].length = last_sge_rem;
+      }
     }
 
     return offset;
