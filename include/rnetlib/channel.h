@@ -35,6 +35,10 @@ class Channel {
 
   virtual size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) = 0;
 
+  virtual size_t Write(void *buf, size_t len, const RemoteMemoryRegion &rmr) = 0;
+
+  virtual size_t Read(void *buf, size_t len, const RemoteMemoryRegion &rmr) = 0;
+
   virtual size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) = 0;
 
   virtual size_t Read(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) = 0;

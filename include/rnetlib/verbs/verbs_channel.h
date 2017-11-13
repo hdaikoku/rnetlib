@@ -223,6 +223,40 @@ class VerbsChannel : public Channel {
     return 0;
   }
 
+  size_t Write(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
+    assert(len == rmr.length);
+    if (len <= EAGER_THRESHOLD) {
+      // eager-write
+      send_buf_.Clear();
+      send_buf_.Write(buf, len);
+      if (PostSend(IBV_WR_RDMA_WRITE, send_buf_.GetSGEPtr(), 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
+        return 0;
+      }
+      return PollSendCQ(num_send_wr_) ? len : 0;
+    }
+    // rendezvous-write
+    return Write(RegisterMemory(buf, len, MR_LOCAL_READ), rmr);
+  }
+
+  size_t Read(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
+    assert(len == rmr.length);
+    if (len <= EAGER_THRESHOLD) {
+      // eager-read
+      send_buf_.SetLength(static_cast<uint32_t>(len));
+      if (PostSend(IBV_WR_RDMA_READ, send_buf_.GetSGEPtr(), 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
+        return 0;
+      }
+
+      if (!PollSendCQ(num_recv_wr_)) {
+        return 0;
+      }
+
+      return send_buf_.Read(buf, len);
+    }
+    // rendezvous-read
+    return Read(RegisterMemory(buf, len, MR_LOCAL_WRITE), rmr);
+  }
+
   size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
     return WriteV(&lmr, &rmr, 1);
   }
@@ -299,7 +333,7 @@ class VerbsChannel : public Channel {
     EagerBuffer(uint32_t len, struct ibv_pd *pd)
         : buflen_(len), buf_(new char[len]),
           lmr_(VerbsLocalMemoryRegion::Register(pd, buf_.get(), buflen_, MR_LOCAL_WRITE | MR_LOCAL_READ)) {
-      std::memset(&sge_, 0, sizeof(struct ibv_sge));
+      std::memset(&sge_, 0, sizeof(sge_));
       sge_.addr = reinterpret_cast<uintptr_t>(lmr_->GetAddr());
       sge_.length = static_cast<uint32_t>(lmr_->GetLength());
       sge_.lkey = lmr_->GetLKey();
@@ -325,6 +359,8 @@ class VerbsChannel : public Channel {
       write_offset_ = 0;
       sge_.length = buflen_;
     }
+
+    void SetLength(uint32_t len) { sge_.length = len; }
 
     struct ibv_sge *GetSGEPtr() { return &sge_; }
 

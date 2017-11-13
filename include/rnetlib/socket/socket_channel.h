@@ -103,6 +103,14 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return lmrcnt;
   }
 
+  size_t Write(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
+    return Write(RegisterMemory(buf, len, MR_LOCAL_READ), rmr);
+  }
+
+  size_t Read(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
+    return Read(RegisterMemory(buf, len, MR_LOCAL_WRITE), rmr);
+  }
+
   size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
     return WriteV(&lmr, &rmr, 1);
   }
