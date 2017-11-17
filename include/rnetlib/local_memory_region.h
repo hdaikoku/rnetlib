@@ -22,9 +22,9 @@ class LocalMemoryRegion {
 
   virtual size_t GetLength() const = 0;
 
-  virtual uint32_t GetLKey() const = 0;
+  virtual uint64_t GetLKey() const = 0;
 
-  virtual uint32_t GetRKey() const = 0;
+  virtual uint64_t GetRKey() const = 0;
 };
 
 } // namespace rnetlib

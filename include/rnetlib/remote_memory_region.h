@@ -11,7 +11,7 @@ struct RemoteMemoryRegion {
       : addr(reinterpret_cast<uintptr_t>(lmr.GetAddr())), rkey(lmr.GetRKey()), length(lmr.GetLength()) {}
 
   uintptr_t addr;
-  uint32_t rkey;
+  uint64_t rkey;
   size_t length;
 };
 

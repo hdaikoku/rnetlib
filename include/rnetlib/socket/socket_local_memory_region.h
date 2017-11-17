@@ -17,9 +17,9 @@ class SocketLocalMemoryRegion : public LocalMemoryRegion {
 
   size_t GetLength() const override { return length_; }
 
-  uint32_t GetLKey() const override { return 0; }
+  uint64_t GetLKey() const override { return 0; }
 
-  uint32_t GetRKey() const override { return 0; }
+  uint64_t GetRKey() const override { return 0; }
 
  private:
   void *addr_;
