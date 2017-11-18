@@ -118,7 +118,7 @@ class VerbsChannel : public Channel {
         continue;
       }
       auto addr = lmr[i]->GetAddr();
-      auto lkey = static_cast<uint32_t>(lmr[i]->GetLKey());
+      auto lkey = *(static_cast<uint32_t *>(lmr[i]->GetLKey()));
 
       if (sent_len == 0) {
         // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
@@ -168,7 +168,7 @@ class VerbsChannel : public Channel {
         continue;
       }
       auto addr = lmr[i]->GetAddr();
-      auto lkey = static_cast<uint32_t>(lmr[i]->GetLKey());
+      auto lkey = *(static_cast<uint32_t *>(lmr[i]->GetLKey()));
 
       if (recvd_len == 0) {
         // this is the very first part of the transfer, receive it with the pre-allocated ReceiveBuffer.
@@ -273,10 +273,9 @@ class VerbsChannel : public Channel {
       len = lmr[i]->GetLength();
       if (len > 0) {
         assert(len == rmr[i].length);
-        sge = {reinterpret_cast<uintptr_t>(lmr[i]->GetAddr()),
-               static_cast<uint32_t>(len),
-               static_cast<uint32_t>(lmr[i]->GetLKey())
-        };
+        sge.addr = reinterpret_cast<uintptr_t>(lmr[i]->GetAddr());
+        sge.length = static_cast<uint32_t>(len);
+        sge.lkey = *(static_cast<uint32_t *>(lmr[i]->GetLKey()));
         if (PostSend(IBV_WR_RDMA_WRITE, &sge, 1, reinterpret_cast<void *>(rmr[i].addr), rmr[i].rkey) != 1) {
           // error
           break;
@@ -296,10 +295,9 @@ class VerbsChannel : public Channel {
       len = lmr[i]->GetLength();
       if (len > 0) {
         assert(len == rmr[i].length);
-        sge = {reinterpret_cast<uintptr_t>(lmr[i]->GetAddr()),
-               static_cast<uint32_t>(len),
-               static_cast<uint32_t>(lmr[i]->GetLKey())
-        };
+        sge.addr = reinterpret_cast<uintptr_t>(lmr[i]->GetAddr());
+        sge.length = static_cast<uint32_t>(len);
+        sge.lkey = *(static_cast<uint32_t *>(lmr[i]->GetLKey()));
         if (PostSend(IBV_WR_RDMA_READ, &sge, 1, reinterpret_cast<void *>(rmr[i].addr), rmr[i].rkey) != 1) {
           // error
           break;
@@ -342,7 +340,7 @@ class VerbsChannel : public Channel {
       std::memset(&sge_, 0, sizeof(sge_));
       sge_.addr = reinterpret_cast<uintptr_t>(lmr_->GetAddr());
       sge_.length = static_cast<uint32_t>(lmr_->GetLength());
-      sge_.lkey = static_cast<uint32_t>(lmr_->GetLKey());
+      sge_.lkey = *(static_cast<uint32_t *>(lmr_->GetLKey()));
     }
 
     size_t Read(void *addr, size_t len) const {

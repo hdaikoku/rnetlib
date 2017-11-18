@@ -52,7 +52,7 @@ class VerbsLocalMemoryRegion : public LocalMemoryRegion {
 
   size_t GetLength() const override { return mr_ ? mr_->length : 0; }
 
-  uint64_t GetLKey() const override { return mr_ ? mr_->lkey : 0; }
+  void *GetLKey() const override { return mr_ ? &mr_->lkey : nullptr; }
 
   uint64_t GetRKey() const override { return mr_ ? mr_->rkey : 0; }
 

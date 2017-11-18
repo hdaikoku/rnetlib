@@ -22,7 +22,7 @@ class LocalMemoryRegion {
 
   virtual size_t GetLength() const = 0;
 
-  virtual uint64_t GetLKey() const = 0;
+  virtual void *GetLKey() const = 0;
 
   virtual uint64_t GetRKey() const = 0;
 };
