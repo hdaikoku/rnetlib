@@ -32,11 +32,11 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t Send(void *buf, size_t len) override {
-    return Send(RegisterMemory(buf, len, MR_LOCAL_READ));
+    return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ));
   }
 
   size_t Recv(void *buf, size_t len) override {
-    return Recv(RegisterMemory(buf, len, MR_LOCAL_WRITE));
+    return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE));
   }
 
   size_t Send(const LocalMemoryRegion::ptr &lmr) override {
@@ -48,12 +48,12 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
-    auto lmr = RegisterMemory(buf, len, MR_LOCAL_READ);
+    auto lmr = RegisterMemoryRegion(buf, len, MR_LOCAL_READ);
     return ISendV(&lmr, 1, evloop);
   }
 
   size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
-    auto lmr = RegisterMemory(buf, len, MR_LOCAL_WRITE);
+    auto lmr = RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE);
     return IRecvV(&lmr, 1, evloop);
   }
 
@@ -104,11 +104,11 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t Write(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
-    return Write(RegisterMemory(buf, len, MR_LOCAL_READ), rmr);
+    return Write(RegisterMemoryRegion(buf, len, MR_LOCAL_READ), rmr);
   }
 
   size_t Read(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
-    return Read(RegisterMemory(buf, len, MR_LOCAL_WRITE), rmr);
+    return Read(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE), rmr);
   }
 
   size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
@@ -129,7 +129,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return 0;
   }
 
-  LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const override {
+  LocalMemoryRegion::ptr RegisterMemoryRegion(void *addr, size_t len, int type) const override {
     return LocalMemoryRegion::ptr(new SocketLocalMemoryRegion(addr, len));
   }
 

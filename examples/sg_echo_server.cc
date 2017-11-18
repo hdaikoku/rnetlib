@@ -19,7 +19,7 @@ int main(int argc, const char **argv) {
   int msgs[num_sgs];
   for (int i = 0; i < num_sgs; i++) {
     msgs[i] = 0;
-    mrs.emplace_back(channel->RegisterMemory(&msgs[i], sizeof(msgs[i]), MR_LOCAL_READ | MR_LOCAL_WRITE));
+    mrs.emplace_back(channel->RegisterMemoryRegion(&msgs[i], sizeof(msgs[i]), MR_LOCAL_READ | MR_LOCAL_WRITE));
   }
 
   channel->RecvV(mrs.data(), mrs.size());

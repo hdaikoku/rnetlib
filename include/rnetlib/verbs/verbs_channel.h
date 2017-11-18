@@ -63,7 +63,7 @@ class VerbsChannel : public Channel {
       return PollSendCQ(num_send_wr_) ? len : 0;
     }
     // rendezvous-send
-    return Send(RegisterMemory(buf, len, MR_LOCAL_READ));
+    return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ));
   }
 
   size_t Recv(void *buf, size_t len) override {
@@ -84,7 +84,7 @@ class VerbsChannel : public Channel {
       return recv_buf_.Read(buf, len);
     }
     // rendezvous-recv
-    return Recv(RegisterMemory(buf, len, MR_LOCAL_WRITE));
+    return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE));
   }
 
   size_t Send(const LocalMemoryRegion::ptr &lmr) override {
@@ -235,7 +235,7 @@ class VerbsChannel : public Channel {
       return PollSendCQ(num_send_wr_) ? len : 0;
     }
     // rendezvous-write
-    return Write(RegisterMemory(buf, len, MR_LOCAL_READ), rmr);
+    return Write(RegisterMemoryRegion(buf, len, MR_LOCAL_READ), rmr);
   }
 
   size_t Read(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
@@ -254,7 +254,7 @@ class VerbsChannel : public Channel {
       return send_buf_.Read(buf, len);
     }
     // rendezvous-read
-    return Read(RegisterMemory(buf, len, MR_LOCAL_WRITE), rmr);
+    return Read(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE), rmr);
   }
 
   size_t Write(const LocalMemoryRegion::ptr &lmr, const RemoteMemoryRegion &rmr) override {
@@ -309,7 +309,7 @@ class VerbsChannel : public Channel {
     return PollSendCQ(num_send_wr_) ? total_len : 0;
   }
 
-  LocalMemoryRegion::ptr RegisterMemory(void *addr, size_t len, int type) const override {
+  LocalMemoryRegion::ptr RegisterMemoryRegion(void *addr, size_t len, int type) const override {
     return VerbsLocalMemoryRegion::Register(id_->pd, addr, len, type);
   }
 

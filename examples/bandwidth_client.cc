@@ -7,7 +7,7 @@ void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 
-  auto local_mem = channel.RegisterMemory(msg.get(), msg_len, MR_LOCAL_WRITE);
+  auto local_mem = channel.RegisterMemoryRegion(msg.get(), msg_len, MR_LOCAL_WRITE);
 
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < 5000; i++) {
