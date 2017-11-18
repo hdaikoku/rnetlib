@@ -48,6 +48,8 @@ class VerbsLocalMemoryRegion : public LocalMemoryRegion {
     }
   }
 
+  size_t Shrink(size_t length) override { return length; }
+
   void *GetAddr() const override { return mr_ ? mr_->addr : nullptr; }
 
   size_t GetLength() const override { return mr_ ? mr_->length : 0; }

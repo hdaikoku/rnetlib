@@ -18,6 +18,8 @@ class LocalMemoryRegion {
 
   virtual ~LocalMemoryRegion() = default;
 
+  virtual size_t Shrink(size_t length) = 0;
+
   virtual void *GetAddr() const = 0;
 
   virtual size_t GetLength() const = 0;
