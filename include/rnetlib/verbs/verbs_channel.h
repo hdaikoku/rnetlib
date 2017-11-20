@@ -9,10 +9,9 @@
 #include <cstring>
 
 #include "rnetlib/channel.h"
+#include "rnetlib/eager_buffer.h"
 #include "rnetlib/verbs/verbs_common.h"
 #include "rnetlib/verbs/verbs_local_memory_region.h"
-
-#define EAGER_THRESHOLD 262144
 
 namespace rnetlib {
 namespace verbs {
@@ -20,8 +19,7 @@ namespace verbs {
 class VerbsChannel : public Channel {
  public:
   explicit VerbsChannel(VerbsCommon::RDMACommID id)
-      : id_(std::move(id)), num_recv_wr_(0), num_send_wr_(0),
-        recv_buf_(EAGER_THRESHOLD, id_->pd), send_buf_(EAGER_THRESHOLD, id_->pd) {
+      : id_(std::move(id)), num_recv_wr_(0), num_send_wr_(0), recv_buf_(*this), send_buf_(*this) {
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr;
 
@@ -37,7 +35,12 @@ class VerbsChannel : public Channel {
     ibv_query_port(id_->verbs, 1, &port_attr);
     max_msg_sz_ = port_attr.max_msg_sz;
 
-    PostRecv(recv_buf_.GetSGEPtr(), 1);
+    struct ibv_sge sge = {
+        .addr = reinterpret_cast<uintptr_t>(recv_buf_.GetAddr()),
+        .length = EAGER_THRESHOLD,
+        .lkey = *(reinterpret_cast<uint32_t *>(recv_buf_.GetLKey()))
+    };
+    PostRecv(&sge, 1);
   }
 
   virtual ~VerbsChannel() {
@@ -53,9 +56,13 @@ class VerbsChannel : public Channel {
   size_t Send(void *buf, size_t len) override {
     if (len <= EAGER_THRESHOLD) {
       // eager-send
-      send_buf_.Clear();
       send_buf_.Write(buf, len);
-      if (PostSend(IBV_WR_SEND, send_buf_.GetSGEPtr(), 1, nullptr, 0) != 1) {
+      struct ibv_sge sge = {
+          .addr = reinterpret_cast<uintptr_t>(send_buf_.GetAddr()),
+          .length = len,
+          .lkey = *(reinterpret_cast<uint32_t *>(send_buf_.GetLKey()))
+      };
+      if (PostSend(IBV_WR_SEND, &sge, 1, nullptr, 0) != 1) {
         // error
         return 0;
       };
@@ -69,9 +76,13 @@ class VerbsChannel : public Channel {
   size_t Recv(void *buf, size_t len) override {
     if (len <= EAGER_THRESHOLD) {
       // eager-recv
-
-      // refill a recv request for a header.
-      if (PostRecv(recv_buf_.GetSGEPtr(), 1) != 1) {
+      // refill a eager-recv request
+      struct ibv_sge sge = {
+          .addr = reinterpret_cast<uintptr_t>(recv_buf_.GetAddr()),
+          .length = EAGER_THRESHOLD,
+          .lkey = *(reinterpret_cast<uint32_t *>(recv_buf_.GetLKey()))
+      };
+      if (PostRecv(&sge, 1) != 1) {
         // error
         return 0;
       }
@@ -107,7 +118,6 @@ class VerbsChannel : public Channel {
 
   size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
     assert(num_send_wr_ == 0);
-
     size_t sent_len = 0;
     std::vector<struct ibv_sge> sges;
     sges.reserve(lmrcnt);
@@ -123,7 +133,11 @@ class VerbsChannel : public Channel {
       if (sent_len == 0) {
         // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
         auto sending_len = (len > EAGER_THRESHOLD) ? EAGER_THRESHOLD : len;
-        struct ibv_sge sge = {reinterpret_cast<uintptr_t>(addr), static_cast<uint32_t>(sending_len), lkey};
+        struct ibv_sge sge = {
+            .addr = reinterpret_cast<uintptr_t>(addr),
+            .length = static_cast<uint32_t>(sending_len),
+            .lkey = lkey
+        };
         if (PostSend(IBV_WR_SEND, &sge, 1, nullptr, 0) != 1) {
           // error
           return 0;
@@ -196,8 +210,13 @@ class VerbsChannel : public Channel {
       return 0;
     }
 
-    // refill a recv request for a header.
-    if (PostRecv(recv_buf_.GetSGEPtr(), 1) != 1) {
+    // refill a eager-recv request
+    struct ibv_sge sge = {
+        .addr = reinterpret_cast<uintptr_t>(recv_buf_.GetAddr()),
+        .length = EAGER_THRESHOLD,
+        .lkey = *(reinterpret_cast<uint32_t *>(recv_buf_.GetLKey()))
+    };
+    if (PostRecv(&sge, 1) != 1) {
       // error
       return 0;
     }
@@ -227,9 +246,13 @@ class VerbsChannel : public Channel {
     assert(len == rmr.length);
     if (len <= EAGER_THRESHOLD) {
       // eager-write
-      send_buf_.Clear();
       send_buf_.Write(buf, len);
-      if (PostSend(IBV_WR_RDMA_WRITE, send_buf_.GetSGEPtr(), 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
+      struct ibv_sge sge = {
+          .addr = reinterpret_cast<uintptr_t>(send_buf_.GetAddr()),
+          .length = len,
+          .lkey = *(reinterpret_cast<uint32_t *>(send_buf_.GetLKey()))
+      };
+      if (PostSend(IBV_WR_RDMA_WRITE, &sge, 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
         return 0;
       }
       return PollSendCQ(num_send_wr_) ? len : 0;
@@ -242,8 +265,12 @@ class VerbsChannel : public Channel {
     assert(len == rmr.length);
     if (len <= EAGER_THRESHOLD) {
       // eager-read
-      send_buf_.SetLength(static_cast<uint32_t>(len));
-      if (PostSend(IBV_WR_RDMA_READ, send_buf_.GetSGEPtr(), 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
+      struct ibv_sge sge = {
+          .addr = reinterpret_cast<uintptr_t>(send_buf_.GetAddr()),
+          .length = static_cast<uint32_t>(len),
+          .lkey = *(reinterpret_cast<uint32_t *>(send_buf_.GetLKey()))
+      };
+      if (PostSend(IBV_WR_RDMA_READ, &sge, 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
         return 0;
       }
 
@@ -331,52 +358,6 @@ class VerbsChannel : public Channel {
   const struct rdma_cm_id *GetIDPtr() const { return id_.get(); }
 
  private:
-  // Pre-allocated buffer for Recv operations.
-  class EagerBuffer {
-   public:
-    EagerBuffer(uint32_t len, struct ibv_pd *pd)
-        : buflen_(len), buf_(new char[len]),
-          lmr_(VerbsLocalMemoryRegion::Register(pd, buf_.get(), buflen_, MR_LOCAL_WRITE | MR_LOCAL_READ)) {
-      std::memset(&sge_, 0, sizeof(sge_));
-      sge_.addr = reinterpret_cast<uintptr_t>(lmr_->GetAddr());
-      sge_.length = static_cast<uint32_t>(lmr_->GetLength());
-      sge_.lkey = *(static_cast<uint32_t *>(lmr_->GetLKey()));
-    }
-
-    size_t Read(void *addr, size_t len) const {
-      auto cpylen = (len > buflen_) ? buflen_ : len;
-      std::memcpy(addr, buf_.get(), cpylen);
-
-      return cpylen;
-    }
-
-    size_t Write(void *addr, size_t len) {
-      auto cpylen = (write_offset_ + len > buflen_) ? buflen_ : len;
-      std::memcpy(buf_.get() + write_offset_, addr, cpylen);
-      write_offset_ += cpylen;
-      sge_.length = write_offset_;
-
-      return cpylen;
-    }
-
-    void Clear() {
-      write_offset_ = 0;
-      sge_.length = buflen_;
-    }
-
-    void SetLength(uint32_t len) { sge_.length = len; }
-
-    struct ibv_sge *GetSGEPtr() { return &sge_; }
-
-   private:
-    struct ibv_sge sge_;
-    const uint32_t buflen_;
-    uint32_t write_offset_;
-    const std::unique_ptr<char[]> buf_;
-    const LocalMemoryRegion::ptr lmr_;
-  };
-
- private:
   VerbsCommon::RDMACommID id_;
   uint32_t max_inline_data_;
   uint32_t max_recv_wr_;
@@ -386,6 +367,7 @@ class VerbsChannel : public Channel {
   uint32_t num_recv_wr_;
   uint32_t num_send_wr_;
   uint32_t max_msg_sz_;
+  // pre-allocated buffer for eager send/recv
   EagerBuffer recv_buf_;
   EagerBuffer send_buf_;
 
