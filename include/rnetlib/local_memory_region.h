@@ -3,14 +3,14 @@
 
 #include <memory>
 
+namespace rnetlib {
+
 enum MRType {
-  MR_LOCAL_READ   = 0,
-  MR_LOCAL_WRITE  = (1 << 0),
-  MR_REMOTE_READ  = (1 << 1),
+  MR_LOCAL_READ = 0,
+  MR_LOCAL_WRITE = (1 << 0),
+  MR_REMOTE_READ = (1 << 1),
   MR_REMOTE_WRITE = (1 << 2)
 };
-
-namespace rnetlib {
 
 class LocalMemoryRegion {
  public:

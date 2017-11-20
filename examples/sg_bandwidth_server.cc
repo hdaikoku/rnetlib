@@ -56,7 +56,8 @@ int main(int argc, const char **argv) {
   std::vector<rnetlib::LocalMemoryRegion::ptr> mrs;
   for (int i = 0; i < num_iters; i++) {
     std::unique_ptr<char[]> blk(new char[msg_size]);
-    mrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size, MR_LOCAL_READ | MR_LOCAL_WRITE));
+    mrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size,
+                                                   rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
     blks.emplace_back(std::move(blk));
   }
 

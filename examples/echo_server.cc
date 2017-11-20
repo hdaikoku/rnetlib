@@ -14,11 +14,12 @@ int main(int argc, const char **argv) {
   std::cout << "EchoServer: listening on port " << server->GetListenPort() << std::endl;
   auto channel = server->Accept();
 
-  int msg;
+  int msg = 0;
   channel->Recv(&msg, sizeof(msg));
   std::cout << "EchoServer: received " << msg << std::endl;
 
   channel->Send(&msg, sizeof(msg));
+  std::cout << "EchoServer: sent " << msg << std::endl;
 
   return 0;
 }
