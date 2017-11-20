@@ -7,6 +7,11 @@
 
 namespace rnetlib {
 
+enum TagType {
+  TAG_MSG = 0,
+  TAG_CTR
+};
+
 class Channel {
  public:
   using ptr = std::unique_ptr<Channel>;
@@ -18,6 +23,10 @@ class Channel {
   virtual size_t Send(void *buf, size_t len) = 0;
 
   virtual size_t Recv(void *buf, size_t len) = 0;
+
+  virtual size_t Send(void *buf, size_t len, TagType tag) = 0;
+
+  virtual size_t Recv(void *buf, size_t len, TagType tag) = 0;
 
   virtual size_t Send(const LocalMemoryRegion::ptr &lmr) = 0;
 
