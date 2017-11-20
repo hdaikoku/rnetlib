@@ -13,11 +13,6 @@ class SocketLocalMemoryRegion : public LocalMemoryRegion {
  public:
   SocketLocalMemoryRegion(void *addr, size_t length) : addr_(addr), length_(length) {}
 
-  size_t Shrink(size_t length) override {
-    length_ = length;
-    return length_;
-  }
-
   void *GetAddr() const override { return addr_; }
 
   size_t GetLength() const override { return length_; }
