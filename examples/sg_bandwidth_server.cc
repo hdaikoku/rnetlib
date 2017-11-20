@@ -48,21 +48,21 @@ int main(int argc, const char **argv) {
   int num_iters = std::stoi(argv[3]);
 
   // FIXME: handle errors
-  auto server = rnetlib::NewServer("0.0.0.0", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
+  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
   server->Listen();
   auto channel = server->Accept();
 
   std::vector<std::unique_ptr<char[]>> blks;
-  std::vector<rnetlib::LocalMemoryRegion::ptr> mrs;
+  std::vector<rnetlib::LocalMemoryRegion::ptr> lmrs;
   for (int i = 0; i < num_iters; i++) {
     std::unique_ptr<char[]> blk(new char[msg_size]);
-    mrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size,
-                                                   rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
+    lmrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size,
+                                                    rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
     blks.emplace_back(std::move(blk));
   }
 
   for (int i = 0; i < 4; i++) {
-    send_by_iovec(mrs, msg_size, num_iters, *channel);
+    send_by_iovec(lmrs, msg_size, num_iters, *channel);
     //send_by_iter(blks, msg_size, num_iters, *channel);
     std::this_thread::sleep_for(std::chrono::seconds(3));
   }

@@ -51,16 +51,16 @@ int main(int argc, const char **argv) {
   auto channel = client->Connect();
 
   std::vector<std::unique_ptr<char[]>> blks;
-  std::vector<rnetlib::LocalMemoryRegion::ptr> mrs;
+  std::vector<rnetlib::LocalMemoryRegion::ptr> lmrs;
   for (int i = 0; i < num_iters; i++) {
     std::unique_ptr<char[]> blk(new char[msg_size]);
-    mrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size,
-                                                   rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
+    lmrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size,
+                                                    rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
     blks.emplace_back(std::move(blk));
   }
 
   for (int i = 0; i < 4; i++) {
-    send_by_iovec(mrs, msg_size, num_iters, *channel);
+    send_by_iovec(lmrs, msg_size, num_iters, *channel);
     //send_by_iter(blks, msg_size, num_iters, *channel);
     std::this_thread::sleep_for(std::chrono::seconds(3));
   }

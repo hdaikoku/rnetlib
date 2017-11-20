@@ -14,16 +14,16 @@ int main(int argc, const char **argv) {
   auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::Mode::SOCKET);
   auto channel = client->Connect();
 
-  std::vector<rnetlib::LocalMemoryRegion::ptr> mrs;
+  std::vector<rnetlib::LocalMemoryRegion::ptr> lmrs;
   int msgs[num_sgs];
   for (int i = 0; i < num_sgs; i++) {
     msgs[i] = i;
-    mrs.emplace_back(channel->RegisterMemoryRegion(&msgs[i], sizeof(msgs[i]),
-                                                   rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
+    lmrs.emplace_back(channel->RegisterMemoryRegion(&msgs[i], sizeof(msgs[i]),
+                                                    rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
   }
-  channel->SendV(mrs.data(), mrs.size());
+  channel->SendV(lmrs.data(), lmrs.size());
 
-  channel->RecvV(mrs.data(), mrs.size());
+  channel->RecvV(lmrs.data(), lmrs.size());
 
   for (int i = 0; i < num_sgs; i++) {
     std::cout << "msgs[" << i << "]: " << msgs[i] << std::endl;
