@@ -10,7 +10,7 @@ namespace ofi {
 class OFIServer : public Server {
  public:
   OFIServer(const std::string &bind_addr, uint16_t bind_port)
-      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)) {}
+      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)), bind_port_(ep_.GetBindPort()) {}
 
   bool Listen() override {
     // Initial receive will get remote address
@@ -23,7 +23,7 @@ class OFIServer : public Server {
     srv_channel_->Recv(&peer_info, sizeof(peer_info), TAG_CTR);
 
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
-    ep_.InsertAddr(peer_info.addr, 1, &peer_addr);
+    ep_.InsertAddr(&peer_info.addr, 1, &peer_addr);
     // initialize channel before sending a reply
     Channel::ptr ch(new OFIChannel(ep_, peer_addr));
     ch->Send(&peer_info.addrlen, sizeof(peer_info.addrlen));
@@ -37,12 +37,13 @@ class OFIServer : public Server {
   }
 
   uint16_t GetListenPort() const override {
-    return 0;
+    return bind_port_;
   }
 
  private:
   OFIEndpoint &ep_;
   Channel::ptr srv_channel_;
+  uint16_t bind_port_;
 };
 
 } // namespace ofi

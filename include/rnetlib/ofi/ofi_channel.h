@@ -9,7 +9,6 @@
 #include "rnetlib/channel.h"
 #include "rnetlib/eager_buffer.h"
 #include "rnetlib/ofi/ofi_endpoint.h"
-#include "ofi_local_memory_region.h"
 
 namespace rnetlib {
 namespace ofi {

@@ -13,7 +13,6 @@
 #include "rnetlib/ofi/ofi_local_memory_region.h"
 
 #define OFI_VERSION FI_VERSION(1, 5)
-#define OFI_MAXADDRLEN 64
 #define OFI_TAG_CTR (1 << 0)
 #define OFI_TAG_MSG (1 << 1)
 
@@ -52,7 +51,12 @@ namespace rnetlib {
 namespace ofi {
 
 struct ofi_addrinfo {
-  char addr[OFI_MAXADDRLEN];
+  union sockaddr_any {
+    struct sockaddr sa;
+    struct sockaddr_in sin;
+    struct sockaddr_in6 sin6;
+    struct sockaddr_storage ss;
+  } addr;
   size_t addrlen;
 };
 
@@ -187,11 +191,20 @@ class OFIEndpoint {
 
   void GetAddrInfo(struct ofi_addrinfo *info) {
     assert(info);
-    info->addrlen = OFI_MAXADDRLEN;
-    OFI_CALL(fi_getname(&ep_->fid, info->addr, &info->addrlen), getname);
+    info->addrlen = sizeof(info->addr);
+    OFI_CALL(fi_getname(&ep_->fid, &info->addr, &info->addrlen), getname);
   }
 
   void *GetDestAddrPtr() { return info_->dest_addr; }
+
+  uint16_t GetBindPort() {
+    char servbuf[BUFSIZ];
+
+    struct ofi_addrinfo addrinfo;
+    GetAddrInfo(&addrinfo);
+    getnameinfo(&addrinfo.addr.sa, addrinfo.addrlen, nullptr, 0, servbuf, BUFSIZ, NI_NUMERICHOST | NI_NUMERICSERV);
+    return static_cast<uint16_t>(std::stoul(servbuf));
+  }
 
  private:
   template <typename T>
