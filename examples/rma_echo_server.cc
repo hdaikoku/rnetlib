@@ -15,11 +15,20 @@ int main(int argc, const char **argv) {
   auto channel = server->Accept();
 
   int msg = 0;
-  channel->Recv(&msg, sizeof(msg));
+  auto lmr = channel->RegisterMemoryRegion(&msg, sizeof(msg), rnetlib::MR_REMOTE_WRITE | rnetlib::MR_LOCAL_READ);
+  rnetlib::RemoteMemoryRegion rmr;
+
+  channel->SynRemoteMemoryRegionV(&lmr, 1);
+  channel->AckRemoteMemoryRegionV(&rmr, 1);
+
+  int fin = 0;
+  channel->Recv(&fin, sizeof(fin));
+  assert(msg == 10 && fin == 1);
   std::cout << "EchoServer: received " << msg << std::endl;
 
-  channel->Send(&msg, sizeof(msg));
-  std::cout << "EchoServer: sent " << msg << std::endl;
+  channel->Write(lmr, rmr);
+  channel->Send(&fin, sizeof(fin));
+  std::cout << "EchoServer: written " << msg << std::endl;
 
   return 0;
 }

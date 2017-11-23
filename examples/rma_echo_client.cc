@@ -13,10 +13,19 @@ int main(int argc, const char **argv) {
   auto channel = client->Connect();
 
   int msg = 10;
-  channel->Send(&msg, sizeof(msg));
-  std::cout << "EchoClient: sent " << msg << std::endl;
+  auto lmr = channel->RegisterMemoryRegion(&msg, sizeof(msg), rnetlib::MR_REMOTE_WRITE | rnetlib::MR_LOCAL_READ);
+  rnetlib::RemoteMemoryRegion rmr;
 
-  channel->Recv(&msg, sizeof(msg));
+  channel->AckRemoteMemoryRegionV(&rmr, 1);
+  channel->SynRemoteMemoryRegionV(&lmr, 1);
+
+  int fin = 1;
+  channel->Write(lmr, rmr);
+  channel->Send(&fin, sizeof(fin));
+  std::cout << "EchoClient: written " << msg << std::endl;
+
+  channel->Recv(&fin, sizeof(fin));
+  assert(msg == 10 && fin == 1);
   std::cout << "EchoClient: received " << msg << std::endl;
 
   return 0;

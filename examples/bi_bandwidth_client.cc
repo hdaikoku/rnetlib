@@ -8,7 +8,7 @@ void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
   std::memset(msg.get(), 'a', msg_len);
 
   channel.SetNonBlocking(true);
-  auto evloop = rnetlib::NewEventLoop(rnetlib::Mode::SOCKET);
+  auto evloop = rnetlib::NewEventLoop(rnetlib::PROV_SOCKET);
 
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < 2500; i++) {
@@ -31,7 +31,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::Mode::SOCKET);
+  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::PROV_SOCKET);
   auto channel = client->Connect();
 
   size_t max_bytes = (1 << 23);

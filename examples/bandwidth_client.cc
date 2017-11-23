@@ -31,7 +31,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::Mode::SOCKET);
+  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::PROV_SOCKET);
   auto channel = client->Connect();
 
   size_t max_bytes = (1 << 23);

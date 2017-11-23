@@ -3,38 +3,39 @@
 
 #include <rnetlib/rnetlib.h>
 
-void send_by_iovec(const std::vector<rnetlib::LocalMemoryRegion::ptr> &mrs,
-                   size_t msg_size,
-                   int num_iters,
-                   rnetlib::Channel &channel) {
-  channel.SetNonBlocking(true);
-  auto evloop = rnetlib::NewEventLoop(rnetlib::Mode::SOCKET);
-
+ssize_t send_by_iovec(const std::vector<rnetlib::LocalMemoryRegion::ptr> &mrs, rnetlib::Channel::ptr &channel) {
   auto beg = std::chrono::steady_clock::now();
-  channel.IRecvV(mrs.data(), mrs.size(), *evloop);
-  channel.ISendV(mrs.data(), mrs.size(), *evloop);
-  evloop->WaitAll(300000);
+  channel->SendV(mrs.data(), mrs.size());
   auto end = std::chrono::steady_clock::now();
-  auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();
-  auto bw = (msg_size * num_iters * 16.) / (dur * 1000000.);
-
-  std::cout << "send by iovec: " << dur << " [msecs], Bandwidth: " << bw << " [Gbit/s]" << std::endl;
+  return std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();
 }
 
-void send_by_iter(const std::vector<std::unique_ptr<char[]>> &blks,
-                  size_t msg_size,
-                  int num_iters,
-                  rnetlib::Channel &channel) {
+ssize_t send_by_iter(const std::vector<rnetlib::LocalMemoryRegion::ptr> &lmrs, rnetlib::Channel::ptr &channel) {
   auto beg = std::chrono::steady_clock::now();
-  for (int i = 0; i < num_iters; i++) {
-    channel.Send(blks[i].get(), msg_size);
-    channel.Recv(blks[i].get(), msg_size);
+  for (const auto &lmr : lmrs) {
+    channel->Send(lmr);
   }
   auto end = std::chrono::steady_clock::now();
-  auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();
 
-  std::cout << "send by iter.: " << dur << " [msecs], Bandwidth: "
-            << (msg_size * num_iters * 16) / (dur * 1000000) << " [Gbit/s]" << std::endl;
+  return std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();
+}
+
+ssize_t send_by_rma(const std::vector<rnetlib::LocalMemoryRegion::ptr> &lmrs, rnetlib::Channel::ptr &channel) {
+  auto beg = std::chrono::steady_clock::now();
+  std::vector<rnetlib::RemoteMemoryRegion> rmrs(lmrs.size());
+  channel->AckRemoteMemoryRegionV(rmrs.data(), rmrs.size());
+
+  channel->ReadV(lmrs.data(), rmrs.data(), lmrs.size());
+  int fin = 1;
+  channel->Send(&fin, sizeof(fin));
+  auto end = std::chrono::steady_clock::now();
+
+  return std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();
+}
+
+void print_bw(const std::string &desc, size_t msg_size, int num_iters, ssize_t dur_msecs) {
+  std::cout << "[SGBandwidthClient] " << desc << ": " << dur_msecs << " [msecs], Bandwidth: "
+            << (msg_size * num_iters * 8.) / (dur_msecs * 1000000.) << " [Gbit/s]" << std::endl;
 }
 
 int main(int argc, const char **argv) {
@@ -43,26 +44,34 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  size_t msg_size = std::stoi(argv[3]);
+  size_t msg_size = std::stoul(argv[3]);
   int num_iters = std::stoi(argv[4]);
 
   // FIXME: handle errors
-  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::Mode::SOCKET);
+  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::PROV_SOCKET);
   auto channel = client->Connect();
 
   std::vector<std::unique_ptr<char[]>> blks;
   std::vector<rnetlib::LocalMemoryRegion::ptr> lmrs;
   for (int i = 0; i < num_iters; i++) {
     std::unique_ptr<char[]> blk(new char[msg_size]);
-    lmrs.emplace_back(channel->RegisterMemoryRegion(blk.get(), msg_size,
-                                                    rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE));
+    lmrs.emplace_back(
+        channel->RegisterMemoryRegion(blk.get(), msg_size, rnetlib::MR_LOCAL_READ | rnetlib::MR_LOCAL_WRITE)
+    );
     blks.emplace_back(std::move(blk));
   }
 
-  for (int i = 0; i < 4; i++) {
-    send_by_iovec(lmrs, msg_size, num_iters, *channel);
-    //send_by_iter(blks, msg_size, num_iters, *channel);
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+  ssize_t dur = 0;
+  for (int i = 0; i < 3; i++) {
+    dur = send_by_iovec(lmrs, channel);
+    print_bw("send_by_iovec", msg_size, num_iters, dur);
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    dur = send_by_iter(lmrs, channel);
+    print_bw("send_by_iter", msg_size, num_iters, dur);
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    dur = send_by_rma(lmrs, channel);
+    print_bw("send_by_rma", msg_size, num_iters, dur);
+    std::this_thread::sleep_for(std::chrono::seconds(2));
   }
 
   return 0;

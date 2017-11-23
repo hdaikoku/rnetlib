@@ -23,7 +23,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
+  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::PROV_SOCKET);
   server->Listen();
   auto channel = server->Accept();
 

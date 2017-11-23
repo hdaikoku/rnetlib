@@ -11,7 +11,7 @@ int main(int argc, const char **argv) {
   int num_sgs = std::stoi(argv[2]);
 
   // FIXME: handle errors
-  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::Mode::SOCKET);
+  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::PROV_SOCKET);
   server->Listen();
   auto channel = server->Accept();
 
@@ -24,13 +24,11 @@ int main(int argc, const char **argv) {
   }
 
   channel->RecvV(lmrs.data(), lmrs.size());
+  channel->SendV(lmrs.data(), lmrs.size());
 
   for (int i = 0; i < num_sgs; i++) {
     std::cout << "msgs[" << i << "]: " << msgs[i] << std::endl;
-    msgs[i] *= 2;
   }
-
-  channel->SendV(lmrs.data(), lmrs.size());
 
   return 0;
 }

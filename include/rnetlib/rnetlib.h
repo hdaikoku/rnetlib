@@ -8,43 +8,64 @@
 #include "rnetlib/socket/socket_event_loop.h"
 #include "rnetlib/socket/socket_server.h"
 
-#ifdef RNETLIB_USE_RDMA
+#ifdef RNETLIB_ENABLE_OFI
+#include "rnetlib/ofi/ofi_client.h"
+#include "rnetlib/ofi/ofi_server.h"
+#endif // RNETLIB_ENABLE_OFI
+
+#ifdef RNETLIB_ENABLE_VERBS
 #include "rnetlib/verbs/verbs_client.h"
 #include "rnetlib/verbs/verbs_event_loop.h"
 #include "rnetlib/verbs/verbs_server.h"
-#endif // RNETLIB_USE_RDMA
+#endif // RNETLIB_ENABLE_VERBS
 
 namespace rnetlib {
 
-enum Mode {
-  SOCKET,
-  VERBS
+enum Prov {
+  PROV_OFI,
+  PROV_VERBS,
+  PROV_SOCKET
 };
 
-static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
-#ifdef RNETLIB_USE_RDMA
-  if (mode == VERBS) {
-    return std::unique_ptr<Client>(new verbs::VerbsClient(addr, port));
+static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Prov prov = PROV_SOCKET) {
+#ifdef RNETLIB_ENABLE_OFI
+  if (prov == PROV_OFI) {
+    return Client::ptr(new ofi::OFIClient(addr, port));
   }
-#endif // RNETLIB_USE_RDMA
-  return std::unique_ptr<Client>(new socket::SocketClient(addr, port));
+#endif // RNETLIB_ENABLE_OFI
+
+#ifdef RNETLIB_ENABLE_VERBS
+  if (prov == PROV_VERBS) {
+    return Client::ptr(new verbs::VerbsClient(addr, port));
+  }
+#endif // RNETLIB_ENABLE_VERBS
+
+  return Client::ptr(new socket::SocketClient(addr, port));
 }
 
-static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Mode mode = Mode::SOCKET) {
-#ifdef RNETLIB_USE_RDMA
-  if (mode == VERBS) {
-    return std::unique_ptr<Server>(new verbs::VerbsServer(addr, port));
+static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Prov prov = PROV_SOCKET) {
+#ifdef RNETLIB_ENABLE_OFI
+  if (prov == PROV_OFI) {
+    return Server::ptr(new ofi::OFIServer(addr, port));
   }
-#endif // RNETLIB_USE_RDMA
-  return std::unique_ptr<Server>(new socket::SocketServer(addr, port));
+#endif // RNETLIB_ENABLE_OFI
+
+#ifdef RNETLIB_ENABLE_VERBS
+  if (prov == PROV_VERBS) {
+    return Server::ptr(new verbs::VerbsServer(addr, port));
+  }
+#endif // RNETLIB_ENABLE_VERBS
+
+  return Server::ptr(new socket::SocketServer(addr, port));
 }
 
-static std::unique_ptr<EventLoop> NewEventLoop(Mode mode = Mode::SOCKET) {
-#ifdef RNETLIB_USE_RDMA
-  if (mode == VERBS) {
+static std::unique_ptr<EventLoop> NewEventLoop(Prov prov = PROV_SOCKET) {
+#ifdef RNETLIB_ENABLE_VERBS
+  if (prov == PROV_VERBS) {
     return std::unique_ptr<EventLoop>(new verbs::VerbsEventLoop);
   }
-#endif // RNETLIB_USE_RDMA
+#endif // RNETLIB_ENABLE_VERBS
+
   return std::unique_ptr<EventLoop>(new socket::SocketEventLoop);
 }
 
