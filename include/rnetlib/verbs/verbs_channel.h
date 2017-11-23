@@ -98,13 +98,13 @@ class VerbsChannel : public Channel {
     return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE));
   }
 
-  size_t Send(void *buf, size_t len, TagType tag) override { return Send(buf, len); }
+  size_t Send(const LocalMemoryRegion::ptr &lmr) override {
+    return SendV(&lmr, 1);
+  }
 
-  size_t Recv(void *buf, size_t len, TagType tag) override { return Recv(buf, len); }
-
-  size_t Send(const LocalMemoryRegion::ptr &lmr) override { return SendV(&lmr, 1); }
-
-  size_t Recv(const LocalMemoryRegion::ptr &lmr) override { return RecvV(&lmr, 1); }
+  size_t Recv(const LocalMemoryRegion::ptr &lmr) override {
+    return RecvV(&lmr, 1);
+  }
 
   size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
     // TODO: implement this.
