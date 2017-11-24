@@ -8,6 +8,7 @@
 #include <rdma/fi_rma.h>
 #include <rdma/fi_tagged.h>
 
+#include <iostream>
 #include <string>
 
 #include "rnetlib/ofi/ofi_local_memory_region.h"
