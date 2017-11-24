@@ -23,11 +23,10 @@ class OFIClient : public Client {
     struct ofi_addrinfo self_info;
     ep_.GetAddrInfo(&self_info);
 
-    Channel::ptr ch(new OFIChannel(ep_, peer_addr));
-    ch->Send(&self_info, sizeof(self_info), TAG_CTR);
-    auto self_addrlen_bak = self_info.addrlen;
+    std::unique_ptr<OFIChannel> ch(new OFIChannel(ep_, peer_addr, TAG_CTR));
+    ch->Send(&self_info, sizeof(self_info));
+    ch->SetTag(TAG_MSG);
     ch->Recv(&self_info.addrlen, sizeof(self_info.addrlen));
-    assert(self_addrlen_bak == self_info.addrlen);
 
     return std::move(ch);
   }

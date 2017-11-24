@@ -20,13 +20,15 @@ class OFIServer : public Server {
 
   Channel::ptr Accept() override {
     struct ofi_addrinfo peer_info;
-    srv_channel_->Recv(&peer_info, sizeof(peer_info), TAG_CTR);
+    srv_channel_->Recv(&peer_info, sizeof(peer_info));
 
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
     ep_.InsertAddr(&peer_info.addr, 1, &peer_addr);
     // initialize channel before sending a reply
-    Channel::ptr ch(new OFIChannel(ep_, peer_addr));
+    std::unique_ptr<OFIChannel> ch(new OFIChannel(ep_, peer_addr, TAG_MSG));
+    ch->SetTag(TAG_CTR);
     ch->Send(&peer_info.addrlen, sizeof(peer_info.addrlen));
+    ch->SetTag(TAG_MSG);
 
     return std::move(ch);
   }
@@ -42,7 +44,7 @@ class OFIServer : public Server {
 
  private:
   OFIEndpoint &ep_;
-  Channel::ptr srv_channel_;
+  std::unique_ptr<OFIChannel> srv_channel_;
   uint16_t bind_port_;
 };
 

@@ -31,21 +31,13 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return SocketCommon::SetNonBlocking(non_blocking);
   }
 
-  size_t Send(void *buf, size_t len) override {
-    return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ));
-  }
+  size_t Send(void *buf, size_t len) override { return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ)); }
 
-  size_t Recv(void *buf, size_t len) override {
-    return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE));
-  }
+  size_t Recv(void *buf, size_t len) override { return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE)); }
 
-  size_t Send(const LocalMemoryRegion::ptr &lmr) override {
-    return SendV(&lmr, 1);
-  }
+  size_t Send(const LocalMemoryRegion::ptr &lmr) override { return SendV(&lmr, 1); }
 
-  size_t Recv(const LocalMemoryRegion::ptr &lmr) override {
-    return RecvV(&lmr, 1);
-  }
+  size_t Recv(const LocalMemoryRegion::ptr &lmr) override { return RecvV(&lmr, 1); }
 
   size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
     auto lmr = RegisterMemoryRegion(buf, len, MR_LOCAL_READ);

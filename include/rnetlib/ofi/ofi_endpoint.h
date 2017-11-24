@@ -13,8 +13,6 @@
 #include "rnetlib/ofi/ofi_local_memory_region.h"
 
 #define OFI_VERSION FI_VERSION(1, 5)
-#define OFI_TAG_CTR (1 << 0)
-#define OFI_TAG_MSG (1 << 1)
 
 #define OFI_PRINTERR(tag, err)                                     \
   do {                                                             \
@@ -92,16 +90,21 @@ class OFIEndpoint {
   }
 
   ssize_t PostSend(const void *buf, size_t len, void *desc, fi_addr_t dst_addr, uint64_t tag, size_t *cnt) {
-    OFI_POST(fi_tsend(ep_.get(), buf, len, desc, dst_addr, tag, &tx_ctx_), PollTxCQ, *cnt);
+    if (tag) {
+      OFI_POST(fi_tsend(ep_.get(), buf, len, desc, dst_addr, tag, &tx_ctx_), PollTxCQ, *cnt);
+    } else {
+      OFI_POST(fi_send(ep_.get(), buf, len, desc, dst_addr, &tx_ctx_), PollTxCQ, *cnt);
+    }
+
     return 0;
   }
 
-  ssize_t PostSend(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, uint64_t tag, size_t *cnt) {
+  ssize_t PostSend(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, size_t *cnt) {
     size_t offset = 0;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_msg_iov) ? max_msg_iov : (iovcnt - offset);
-      OFI_POST(fi_tsendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, tag, &tx_ctx_), PollTxCQ, *cnt);
+      OFI_POST(fi_sendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &tx_ctx_), PollTxCQ, *cnt);
       offset += num_iov;
     }
 
@@ -109,16 +112,21 @@ class OFIEndpoint {
   }
 
   ssize_t PostRecv(void *buf, size_t len, void *desc, fi_addr_t src_addr, uint64_t tag, size_t *cnt) {
-    OFI_POST(fi_trecv(ep_.get(), buf, len, desc, src_addr, tag, 0, &rx_ctx_), PollRxCQ, *cnt);
+    if (tag) {
+      OFI_POST(fi_trecv(ep_.get(), buf, len, desc, src_addr, tag, 0, &rx_ctx_), PollRxCQ, *cnt);
+    } else {
+      OFI_POST(fi_recv(ep_.get(), buf, len, desc, src_addr, &rx_ctx_), PollRxCQ, *cnt);
+    }
+
     return 0;
   }
 
-  ssize_t PostRecv(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, uint64_t tag, size_t *cnt) {
+  ssize_t PostRecv(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, size_t *cnt) {
     size_t offset = 0;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_msg_iov) ? max_msg_iov : (iovcnt - offset);
-      OFI_POST(fi_trecvv(ep_.get(), iov + offset, desc, num_iov, dst_addr, tag, 0, &rx_ctx_), PollRxCQ, *cnt);
+      OFI_POST(fi_recvv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &rx_ctx_), PollRxCQ, *cnt);
       offset += num_iov;
     }
 
@@ -189,10 +197,10 @@ class OFIEndpoint {
     }
   }
 
-  void GetAddrInfo(struct ofi_addrinfo *info) {
-    assert(info);
-    info->addrlen = sizeof(info->addr);
-    OFI_CALL(fi_getname(&ep_->fid, &info->addr, &info->addrlen), getname);
+  void GetAddrInfo(struct ofi_addrinfo *addrinfo) {
+    assert(addrinfo);
+    addrinfo->addrlen = sizeof(addrinfo->addr);
+    OFI_CALL(fi_getname(&ep_->fid, &addrinfo->addr, &addrinfo->addrlen), getname);
   }
 
   void *GetDestAddrPtr() { return info_->dest_addr; }

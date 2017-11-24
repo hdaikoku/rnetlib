@@ -1,8 +1,6 @@
 #ifndef RNETLIB_OFI_OFI_CHANNEL_H_
 #define RNETLIB_OFI_OFI_CHANNEL_H_
 
-#include <sys/uio.h>
-
 #include <cstring>
 #include <vector>
 
@@ -13,29 +11,25 @@
 namespace rnetlib {
 namespace ofi {
 
+enum TagType {
+  TAG_MSG = 0,
+  TAG_CTR
+};
+
 class OFIChannel : public Channel {
  public:
   OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr, TagType tag = TAG_MSG)
-      : ep_(ep), peer_addr_(peer_addr), num_tx_(0), num_rx_(0), recv_buf_(*this) {
-    num_rx_ += ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(),
-                            peer_addr_, (tag == TAG_MSG) ? OFI_TAG_MSG : OFI_TAG_CTR, &num_rx_);
+      : ep_(ep), peer_addr_(peer_addr), num_tx_(0), num_rx_(0), tag_(tag), recv_buf_(*this) {
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, tag_, &num_rx_);
   }
 
   ~OFIChannel() override { ep_.RemoveAddr(&peer_addr_, 1); }
 
   bool SetNonBlocking(bool non_blocking) override { return true; }
 
-  size_t Send(void *buf, size_t len) override { return Send(buf, len, TAG_MSG); }
+  size_t Send(void *buf, size_t len) override { return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ)); }
 
-  size_t Recv(void *buf, size_t len) override { return Recv(buf, len, TAG_MSG); }
-
-  size_t Send(void *buf, size_t len, TagType tag) override {
-    return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ));
-  }
-
-  size_t Recv(void *buf, size_t len, TagType tag) override {
-    return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE));
-  }
+  size_t Recv(void *buf, size_t len) override { return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE)); }
 
   size_t Send(const LocalMemoryRegion::ptr &lmr) override { return SendV(&lmr, 1); }
 
@@ -70,7 +64,7 @@ class OFIChannel : public Channel {
       if (sent_len == 0) {
         // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
         auto sending_len = (len > EAGER_THRESHOLD) ? EAGER_THRESHOLD : len;
-        ep_.PostSend(addr, sending_len, lkey, peer_addr_, OFI_TAG_MSG, &num_tx_);
+        ep_.PostSend(addr, sending_len, lkey, peer_addr_, tag_, &num_tx_);
         num_tx_ -= ep_.PollTxCQ(1);
         if (num_tx_ > 0) {
           return 0;
@@ -89,7 +83,7 @@ class OFIChannel : public Channel {
       sent_len += len;
     }
 
-    if (ep_.PostSend(iov.data(), desc.data(), iov.size(), peer_addr_, OFI_TAG_MSG, &num_tx_)) {
+    if (ep_.PostSend(iov.data(), desc.data(), iov.size(), peer_addr_, &num_tx_)) {
       return 0;
     }
 
@@ -136,10 +130,10 @@ class OFIChannel : public Channel {
       recvd_len += len;
     }
 
-    ep_.PostRecv(iov.data(), desc.data(), iov.size(), peer_addr_, OFI_TAG_MSG, &num_rx_);
+    ep_.PostRecv(iov.data(), desc.data(), iov.size(), peer_addr_, &num_rx_);
 
     // refill a recv request for a header.
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, OFI_TAG_MSG, &num_rx_);
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, tag_, &num_rx_);
 
     num_rx_ -= ep_.PollRxCQ(num_rx_ - 1);
     if (num_rx_ != 1) {
@@ -264,11 +258,14 @@ class OFIChannel : public Channel {
     Recv(rmr, sizeof(RemoteMemoryRegion) * rmrcnt);
   }
 
+  void SetTag(TagType tag) { tag_ = tag; }
+
  private:
   OFIEndpoint &ep_;
   fi_addr_t peer_addr_;
   size_t num_tx_;
   size_t num_rx_;
+  TagType tag_;
   // pre-allocated buffer for eager send/recv
   EagerBuffer recv_buf_;
 };
