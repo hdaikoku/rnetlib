@@ -11,16 +11,11 @@
 namespace rnetlib {
 namespace ofi {
 
-enum TagType {
-  TAG_MSG = 0,
-  TAG_CTR
-};
-
 class OFIChannel : public Channel {
  public:
-  OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr, TagType tag = TAG_MSG)
-      : ep_(ep), peer_addr_(peer_addr), num_tx_(0), num_rx_(0), tag_(tag), recv_buf_(*this) {
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, tag_, &num_rx_);
+  OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr)
+      : ep_(ep), peer_addr_(peer_addr), num_tx_(0), num_rx_(0), recv_buf_(*this) {
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &num_rx_);
   }
 
   ~OFIChannel() override { ep_.RemoveAddr(&peer_addr_, 1); }
@@ -64,7 +59,7 @@ class OFIChannel : public Channel {
       if (sent_len == 0) {
         // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
         auto sending_len = (len > EAGER_THRESHOLD) ? EAGER_THRESHOLD : len;
-        ep_.PostSend(addr, sending_len, lkey, peer_addr_, tag_, &num_tx_);
+        ep_.PostSend(addr, sending_len, lkey, peer_addr_, TAG_MSG, &num_tx_);
         num_tx_ -= ep_.PollTxCQ(1);
         if (num_tx_ > 0) {
           return 0;
@@ -133,7 +128,7 @@ class OFIChannel : public Channel {
     ep_.PostRecv(iov.data(), desc.data(), iov.size(), peer_addr_, &num_rx_);
 
     // refill a recv request for a header.
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, tag_, &num_rx_);
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &num_rx_);
 
     num_rx_ -= ep_.PollRxCQ(num_rx_ - 1);
     if (num_rx_ != 1) {
@@ -258,14 +253,11 @@ class OFIChannel : public Channel {
     Recv(rmr, sizeof(RemoteMemoryRegion) * rmrcnt);
   }
 
-  void SetTag(TagType tag) { tag_ = tag; }
-
  private:
   OFIEndpoint &ep_;
   fi_addr_t peer_addr_;
   size_t num_tx_;
   size_t num_rx_;
-  TagType tag_;
   // pre-allocated buffer for eager send/recv
   EagerBuffer recv_buf_;
 };

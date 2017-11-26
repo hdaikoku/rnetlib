@@ -24,10 +24,14 @@ class OFIClient : public Client {
     }
 
     auto &self_addrinfo = ep_.GetBindAddrInfo();
+    auto lmr = ep_.RegisterMemoryRegion(&self_addrinfo, sizeof(self_addrinfo), MR_LOCAL_READ);
+    Channel::ptr ch(new OFIChannel(ep_, peer_addr));
 
-    std::unique_ptr<OFIChannel> ch(new OFIChannel(ep_, peer_addr, TAG_CTR));
-    ch->Send(&self_addrinfo, sizeof(self_addrinfo));
-    ch->SetTag(TAG_MSG);
+    size_t num_tx = 0;
+    ep_.PostSend(lmr->GetAddr(), lmr->GetLength(), lmr->GetLKey(), peer_addr, TAG_CTR, &num_tx);
+    num_tx -= ep_.PollTxCQ(num_tx);
+    assert(num_tx == 0);
+
     ch->Recv(&self_addrinfo.addrlen, sizeof(self_addrinfo.addrlen));
 
     return std::move(ch);

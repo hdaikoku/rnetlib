@@ -49,6 +49,11 @@
 namespace rnetlib {
 namespace ofi {
 
+enum TagType {
+  TAG_MSG = 0,
+  TAG_CTR
+};
+
 struct ofi_addrinfo {
   char addr[FI_NAME_MAX];
   size_t addrlen;
