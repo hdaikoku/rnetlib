@@ -24,12 +24,12 @@ namespace socket {
 
 class SocketChannel : public Channel, public EventHandler, public SocketCommon {
  public:
-  SocketChannel() = default;
-  SocketChannel(int sock_fd) : SocketCommon(sock_fd) {}
+  explicit SocketChannel(int sock_fd) : SocketChannel(sock_fd, 0) {}
+  SocketChannel(int sock_fd, uint64_t peer_desc) : SocketCommon(sock_fd), peer_desc_(peer_desc) {}
 
-  bool SetNonBlocking(bool non_blocking) override {
-    return SocketCommon::SetNonBlocking(non_blocking);
-  }
+  uint64_t GetDesc() const override { return peer_desc_; }
+
+  bool SetNonBlocking(bool non_blocking) override { return SocketCommon::SetNonBlocking(non_blocking); }
 
   size_t Send(void *buf, size_t len) override { return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ)); }
 
@@ -146,13 +146,9 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return (send_iov_.empty() && recv_iov_.empty()) ? MAY_BE_REMOVED : 0;
   }
 
-  int OnError(int error_type) override {
-    return MAY_BE_REMOVED;
-  }
+  int OnError(int error_type) override { return MAY_BE_REMOVED; }
 
-  void *GetHandlerID() const override {
-    return const_cast<int *>(&sock_fd_);
-  }
+  void *GetHandlerID() const override { return const_cast<int *>(&sock_fd_); }
 
   short GetEventType() const override {
     short type = 0;
@@ -167,9 +163,10 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return type;
   }
 
+  void SetDesc(uint64_t peer_desc) { peer_desc_ = peer_desc; }
+
  private:
-  std::string peer_addr_;
-  uint16_t peer_port_;
+  uint64_t peer_desc_;
   std::vector<struct iovec> send_iov_;
   std::vector<struct iovec> recv_iov_;
 

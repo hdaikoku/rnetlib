@@ -40,13 +40,15 @@ class VerbsServer : public Server, public EventHandler {
       return nullptr;
     }
 
-    channel_.reset(new VerbsChannel(VerbsCommon::RDMACommID(new_id)));
+    auto peer_desc = *(reinterpret_cast<const uint64_t *>(new_id->event->param.conn.private_data));
+    channel_.reset(new VerbsChannel(VerbsCommon::RDMACommID(new_id), peer_desc));
+
     if (rdma_accept(const_cast<struct rdma_cm_id *>(channel_->GetIDPtr()), nullptr)) {
       return nullptr;
     }
 
     // FIXME: might be better to wait for RDMA_CM_EVENT_ESTABLISHED event
-    return Channel::ptr(channel_.release());
+    return std::move(channel_);
   }
 
   std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(Channel & )> on_established) override {

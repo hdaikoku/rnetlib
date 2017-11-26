@@ -28,8 +28,8 @@ namespace socket {
 
 class SocketClient : public Client, public SocketCommon, public EventHandler {
  public:
-  SocketClient(const std::string &peer_addr, uint16_t peer_port)
-      : peer_addr_(peer_addr), peer_port_(peer_port) {}
+  SocketClient(const std::string &peer_addr, uint16_t peer_port, uint64_t self_desc, uint64_t peer_desc)
+      : peer_addr_(peer_addr), peer_port_(peer_port), self_desc_(self_desc), peer_desc_(peer_desc) {}
 
   virtual ~SocketClient() = default;
 
@@ -54,8 +54,11 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
       }
     }
 
+    Channel::ptr ch(new SocketChannel(sock_fd_, peer_desc_));
+    ch->Send(&self_desc_, sizeof(self_desc_));
+
     // successfully connected.
-    return std::unique_ptr<Channel>(new SocketChannel(sock_fd_));
+    return std::move(ch);
   }
 
   std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
@@ -107,6 +110,8 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   static const int kConnEstablished = 1;
   std::string peer_addr_;
   uint16_t peer_port_;
+  uint64_t self_desc_;
+  uint64_t peer_desc_;
   std::promise<Channel::ptr> promise_;
   std::function<void(Channel &)> on_established_;
 

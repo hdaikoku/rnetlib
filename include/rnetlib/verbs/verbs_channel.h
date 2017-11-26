@@ -18,8 +18,10 @@ namespace verbs {
 
 class VerbsChannel : public Channel {
  public:
-  explicit VerbsChannel(VerbsCommon::RDMACommID id)
-      : id_(std::move(id)), num_recv_wr_(0), num_send_wr_(0), recv_buf_(*this), send_buf_(*this) {
+  explicit VerbsChannel(VerbsCommon::RDMACommID id) : VerbsChannel(std::move(id), 0) {}
+  VerbsChannel(VerbsCommon::RDMACommID id, uint64_t peer_desc)
+      : id_(std::move(id)), peer_desc_(peer_desc), num_recv_wr_(0), num_send_wr_(0),
+        recv_buf_(*this), send_buf_(*this) {
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr;
 
@@ -48,6 +50,8 @@ class VerbsChannel : public Channel {
       rdma_disconnect(id_.get());
     }
   }
+
+  uint64_t GetDesc() const override { return peer_desc_; }
 
   bool SetNonBlocking(bool non_blocking) override { return true; }
 
@@ -353,6 +357,7 @@ class VerbsChannel : public Channel {
 
  private:
   VerbsCommon::RDMACommID id_;
+  uint64_t peer_desc_;
   uint32_t max_inline_data_;
   uint32_t max_recv_wr_;
   uint32_t max_send_wr_;

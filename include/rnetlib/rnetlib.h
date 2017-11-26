@@ -27,23 +27,27 @@ enum Prov {
   PROV_SOCKET
 };
 
-static std::unique_ptr<Client> NewClient(const std::string &addr, uint16_t port, Prov prov = PROV_SOCKET) {
+static std::unique_ptr<Client> NewClient(const std::string &addr,
+                                         uint16_t port,
+                                         Prov prov,
+                                         uint64_t self_desc = 0,
+                                         uint64_t peer_desc = 0) {
 #ifdef RNETLIB_ENABLE_OFI
   if (prov == PROV_OFI) {
-    return Client::ptr(new ofi::OFIClient(addr, port));
+    return Client::ptr(new ofi::OFIClient(addr, port, self_desc, peer_desc));
   }
 #endif // RNETLIB_ENABLE_OFI
 
 #ifdef RNETLIB_ENABLE_VERBS
   if (prov == PROV_VERBS) {
-    return Client::ptr(new verbs::VerbsClient(addr, port));
+    return Client::ptr(new verbs::VerbsClient(addr, port, self_desc, peer_desc));
   }
 #endif // RNETLIB_ENABLE_VERBS
 
-  return Client::ptr(new socket::SocketClient(addr, port));
+  return Client::ptr(new socket::SocketClient(addr, port, self_desc, peer_desc));
 }
 
-static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Prov prov = PROV_SOCKET) {
+static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Prov prov) {
 #ifdef RNETLIB_ENABLE_OFI
   if (prov == PROV_OFI) {
     return Server::ptr(new ofi::OFIServer(addr, port));
@@ -59,7 +63,7 @@ static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port,
   return Server::ptr(new socket::SocketServer(addr, port));
 }
 
-static std::unique_ptr<EventLoop> NewEventLoop(Prov prov = PROV_SOCKET) {
+static std::unique_ptr<EventLoop> NewEventLoop(Prov prov) {
 #ifdef RNETLIB_ENABLE_VERBS
   if (prov == PROV_VERBS) {
     return std::unique_ptr<EventLoop>(new verbs::VerbsEventLoop);

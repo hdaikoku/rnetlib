@@ -13,12 +13,14 @@ namespace ofi {
 
 class OFIChannel : public Channel {
  public:
-  OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr)
-      : ep_(ep), peer_addr_(peer_addr), num_tx_(0), num_rx_(0), recv_buf_(*this) {
+  OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr, uint64_t peer_desc)
+      : ep_(ep), peer_addr_(peer_addr), peer_desc_(peer_desc), num_tx_(0), num_rx_(0), recv_buf_(*this) {
     ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &num_rx_);
   }
 
   ~OFIChannel() override { ep_.RemoveAddr(&peer_addr_, 1); }
+
+  uint64_t GetDesc() const override { return peer_desc_; }
 
   bool SetNonBlocking(bool non_blocking) override { return true; }
 
@@ -256,6 +258,7 @@ class OFIChannel : public Channel {
  private:
   OFIEndpoint &ep_;
   fi_addr_t peer_addr_;
+  uint64_t peer_desc_;
   size_t num_tx_;
   size_t num_rx_;
   // pre-allocated buffer for eager send/recv

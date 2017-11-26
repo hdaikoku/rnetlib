@@ -69,7 +69,12 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
       return nullptr;
     }
 
-    return std::unique_ptr<Channel>(new SocketChannel(sock_fd));
+    std::unique_ptr<SocketChannel> ch(new SocketChannel(sock_fd));
+    uint64_t peer_desc;
+    ch->Recv(&peer_desc, sizeof(peer_desc));
+    ch->SetDesc(peer_desc);
+
+    return std::move(ch);
   }
 
   std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(rnetlib::Channel &)> on_established) override {

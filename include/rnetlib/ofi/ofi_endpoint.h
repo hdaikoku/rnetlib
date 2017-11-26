@@ -57,6 +57,7 @@ enum TagType {
 struct ofi_addrinfo {
   char addr[FI_NAME_MAX];
   size_t addrlen;
+  uint64_t desc;
 };
 
 class OFIEndpoint {

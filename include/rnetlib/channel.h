@@ -13,6 +13,8 @@ class Channel {
 
   virtual ~Channel() = default;
 
+  virtual uint64_t GetDesc() const = 0;
+
   virtual bool SetNonBlocking(bool non_blocking) = 0;
 
   virtual size_t Send(void *buf, size_t len) = 0;

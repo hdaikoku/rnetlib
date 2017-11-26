@@ -27,9 +27,9 @@ class OFIServer : public Server {
     assert(num_rx_ == 1);
     
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
-    ep_.InsertAddr(&peer_ai_[ai_idx_], 1, &peer_addr);
+    ep_.InsertAddr(&peer_ai_[ai_idx_].addr, 1, &peer_addr);
 
-    Channel::ptr ch(new OFIChannel(ep_, peer_addr));
+    Channel::ptr ch(new OFIChannel(ep_, peer_addr, peer_ai_[ai_idx_].desc));
     ch->Send(&peer_ai_[ai_idx_].addrlen, sizeof(peer_ai_[ai_idx_].addrlen));
 
     return std::move(ch);
