@@ -13,20 +13,22 @@ namespace ofi {
 class OFIClient : public Client {
  public:
   OFIClient(const std::string &peer_addr, uint16_t peer_port)
-      : ep_(OFIEndpoint::GetInstance(peer_addr, peer_port, 0)) {}
+      : ep_(OFIEndpoint::GetInstance(peer_addr, peer_port, 0)), peer_addr_(peer_addr) {}
 
   Channel::ptr Connect() override {
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
-    assert(ep_.GetDestAddrPtr());
-    ep_.InsertAddr(ep_.GetDestAddrPtr(), 1, &peer_addr);
+    if (ep_.GetDestAddrPtr()) {
+      ep_.InsertAddr(ep_.GetDestAddrPtr(), 1, &peer_addr);
+    } else {
+      ep_.InsertAddr(peer_addr_.c_str(), 1, &peer_addr);
+    }
 
-    struct ofi_addrinfo self_info;
-    ep_.GetAddrInfo(&self_info);
+    auto &self_addrinfo = ep_.GetBindAddrInfo();
 
     std::unique_ptr<OFIChannel> ch(new OFIChannel(ep_, peer_addr, TAG_CTR));
-    ch->Send(&self_info, sizeof(self_info));
+    ch->Send(&self_addrinfo, sizeof(self_addrinfo));
     ch->SetTag(TAG_MSG);
-    ch->Recv(&self_info.addrlen, sizeof(self_info.addrlen));
+    ch->Recv(&self_addrinfo.addrlen, sizeof(self_addrinfo.addrlen));
 
     return std::move(ch);
   }
@@ -38,6 +40,7 @@ class OFIClient : public Client {
 
  private:
   OFIEndpoint &ep_;
+  std::string peer_addr_;
 };
 
 } // namespace ofi

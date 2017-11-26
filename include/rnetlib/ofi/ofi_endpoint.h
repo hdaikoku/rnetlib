@@ -50,12 +50,7 @@ namespace rnetlib {
 namespace ofi {
 
 struct ofi_addrinfo {
-  union sockaddr_any {
-    struct sockaddr sa;
-    struct sockaddr_in sin;
-    struct sockaddr_in6 sin6;
-    struct sockaddr_storage ss;
-  } addr;
+  char addr[FI_NAME_MAX];
   size_t addrlen;
 };
 
@@ -198,22 +193,9 @@ class OFIEndpoint {
     }
   }
 
-  void GetAddrInfo(struct ofi_addrinfo *addrinfo) {
-    assert(addrinfo);
-    addrinfo->addrlen = sizeof(addrinfo->addr);
-    OFI_CALL(fi_getname(&ep_->fid, &addrinfo->addr, &addrinfo->addrlen), getname);
-  }
+  struct ofi_addrinfo &GetBindAddrInfo() { return bind_addr_; }
 
   void *GetDestAddrPtr() { return info_->dest_addr; }
-
-  uint16_t GetBindPort() {
-    char servbuf[BUFSIZ];
-
-    struct ofi_addrinfo addrinfo;
-    GetAddrInfo(&addrinfo);
-    getnameinfo(&addrinfo.addr.sa, addrinfo.addrlen, nullptr, 0, servbuf, BUFSIZ, NI_NUMERICHOST | NI_NUMERICSERV);
-    return static_cast<uint16_t>(std::stoul(servbuf));
-  }
 
  private:
   template <typename T>
@@ -233,6 +215,7 @@ class OFIEndpoint {
   struct fi_context rx_ctx_;
   size_t max_msg_iov;
   size_t max_rma_iov;
+  struct ofi_addrinfo bind_addr_;
 
   OFIEndpoint(const char *addr, uint16_t port, uint64_t flags)
       : info_(nullptr, fi_freeinfo), fabric_(nullptr, fid_deleter<struct fid_fabric>),
@@ -314,6 +297,10 @@ class OFIEndpoint {
 
     // enable endpoint
     OFI_CALL(fi_enable(ep_.get()), ep_enable);
+
+    // get bind addr/port
+    bind_addr_.addrlen = FI_NAME_MAX;
+    OFI_CALL(fi_getname(&ep_->fid, &bind_addr_.addr, &bind_addr_.addrlen), getname);
   }
 
   size_t PollCQ(struct fid_cq *cq, size_t count, void *ctx) {

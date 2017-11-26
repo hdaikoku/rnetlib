@@ -22,6 +22,8 @@ class Server {
   virtual std::future<Channel::ptr> Accept(EventLoop &loop,
                                            std::function<void(rnetlib::Channel &)> on_established = nullptr) = 0;
 
+  virtual std::string GetRawAddr() const = 0;
+
   virtual uint16_t GetListenPort() const = 0;
 };
 

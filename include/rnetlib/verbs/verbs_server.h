@@ -1,6 +1,8 @@
 #ifndef RNETLIB_VERBS_VERBS_SERVER_H_
 #define RNETLIB_VERBS_VERBS_SERVER_H_
 
+#include <arpa/inet.h>
+
 #include <cerrno>
 
 #include "rnetlib/server.h"
@@ -56,9 +58,27 @@ class VerbsServer : public Server, public EventHandler {
     return promise_.get_future();
   }
 
-  uint16_t GetListenPort() const override {
-    return ntohs(rdma_get_src_port(listen_id_.get()));
+  std::string GetRawAddr() const override {
+    struct sockaddr *sa = rdma_get_local_addr(listen_id_.get());
+    std::unique_ptr<char[]> addrstr;
+
+    switch (sa->sa_family) {
+      case AF_INET:
+        auto addr_in = reinterpret_cast<struct sockaddr_in *>(sa);
+        addrstr.reset(new char[INET_ADDRSTRLEN]);
+        inet_ntop(AF_INET, &addr_in->sin_addr, addrstr.get(), INET_ADDRSTRLEN);
+        return addrstr.get();
+      case AF_INET6:
+        auto addr_in6 = reinterpret_cast<struct sockaddr_in6 *>(sa);
+        addrstr.reset(new char[INET6_ADDRSTRLEN]);
+        inet_ntop(AF_INET6, &addr_in6->sin6_addr, addrstr.get(), INET6_ADDRSTRLEN);
+        return addrstr.get();
+      default:
+        return "";
+    }
   }
+
+  uint16_t GetListenPort() const override { return ntohs(rdma_get_src_port(listen_id_.get())); }
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type == RDMA_CM_EVENT_CONNECT_REQUEST) {
@@ -117,7 +137,7 @@ class VerbsServer : public Server, public EventHandler {
   std::string bind_addr_;
   uint16_t bind_port_;
   std::promise<Channel::ptr> promise_;
-  std::function<void(Channel &)> on_established_;
+  std::function<void(Channel & )> on_established_;
 };
 
 } // namespace verbs

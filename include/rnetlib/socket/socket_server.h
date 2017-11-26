@@ -83,6 +83,8 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
     return promise_.get_future();
   }
 
+  std::string GetRawAddr() const override { return bind_addr_; }
+
   uint16_t GetListenPort() const override {
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);

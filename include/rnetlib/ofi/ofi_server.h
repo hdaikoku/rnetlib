@@ -10,7 +10,7 @@ namespace ofi {
 class OFIServer : public Server {
  public:
   OFIServer(const std::string &bind_addr, uint16_t bind_port)
-      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)), bind_port_(ep_.GetBindPort()) {}
+      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)) {}
 
   bool Listen() override {
     // Initial receive will get remote address
@@ -38,14 +38,16 @@ class OFIServer : public Server {
     return promise_.get_future();
   }
 
-  uint16_t GetListenPort() const override {
-    return bind_port_;
+  std::string GetRawAddr() const override {
+    const auto &self_addrinfo = ep_.GetBindAddrInfo();
+    return std::string(self_addrinfo.addr, self_addrinfo.addrlen);
   }
+
+  uint16_t GetListenPort() const override { return 0; }
 
  private:
   OFIEndpoint &ep_;
   std::unique_ptr<OFIChannel> srv_channel_;
-  uint16_t bind_port_;
 };
 
 } // namespace ofi
