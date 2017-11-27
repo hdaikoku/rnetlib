@@ -14,11 +14,17 @@ namespace ofi {
 class OFIChannel : public Channel {
  public:
   OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr, uint64_t peer_desc)
-      : ep_(ep), peer_addr_(peer_addr), peer_desc_(peer_desc), num_tx_(0), num_rx_(0), recv_buf_(*this) {
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &num_rx_);
+      : ep_(ep), peer_addr_(peer_addr), peer_desc_(peer_desc), recv_buf_(*this) {
+    ep_.RegisterContext(&tx_ctx_);
+    ep_.RegisterContext(&rx_ctx_);
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &rx_ctx_);
   }
 
-  ~OFIChannel() override { ep_.RemoveAddr(&peer_addr_, 1); }
+  ~OFIChannel() override {
+    ep_.DeregisterContext(&tx_ctx_);
+    ep_.DeregisterContext(&rx_ctx_);
+    ep_.RemoveAddr(&peer_addr_, 1);
+  }
 
   uint64_t GetDesc() const override { return peer_desc_; }
 
@@ -43,7 +49,7 @@ class OFIChannel : public Channel {
   }
 
   size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    assert(num_tx_ == 0);
+    assert(OFI_CTX_WR(&tx_ctx_) == 0);
     size_t sent_len = 0;
     std::vector<struct iovec> iov;
     std::vector<void *> desc;
@@ -61,9 +67,8 @@ class OFIChannel : public Channel {
       if (sent_len == 0) {
         // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
         auto sending_len = (len > EAGER_THRESHOLD) ? EAGER_THRESHOLD : len;
-        ep_.PostSend(addr, sending_len, lkey, peer_addr_, TAG_MSG, &num_tx_);
-        num_tx_ -= ep_.PollTxCQ(1);
-        if (num_tx_ > 0) {
+        ep_.PostSend(addr, sending_len, lkey, peer_addr_, TAG_MSG, &tx_ctx_);
+        if (ep_.PollTxCQ(OFI_CTX_WR(&tx_ctx_), &tx_ctx_) != 1) {
           return 0;
         }
         sent_len += sending_len;
@@ -80,16 +85,16 @@ class OFIChannel : public Channel {
       sent_len += len;
     }
 
-    if (ep_.PostSend(iov.data(), desc.data(), iov.size(), peer_addr_, &num_tx_)) {
+    if (ep_.PostSend(iov.data(), desc.data(), iov.size(), peer_addr_, &tx_ctx_)) {
       return 0;
     }
 
-    num_tx_ -= ep_.PollTxCQ(num_tx_);
-    return (num_tx_ == 0) ? sent_len : 0;
+    ep_.PollTxCQ(OFI_CTX_WR(&tx_ctx_), &tx_ctx_);
+    return (OFI_CTX_WR(&tx_ctx_) == 0) ? sent_len : 0;
   }
 
   size_t RecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    assert(num_rx_ == 1);
+    assert(OFI_CTX_WR(&rx_ctx_) == 1);
     size_t recvd_len = 0;
     void *head_addr = nullptr;
     size_t head_len = 0;
@@ -127,13 +132,13 @@ class OFIChannel : public Channel {
       recvd_len += len;
     }
 
-    ep_.PostRecv(iov.data(), desc.data(), iov.size(), peer_addr_, &num_rx_);
+    ep_.PostRecv(iov.data(), desc.data(), iov.size(), peer_addr_, &rx_ctx_);
 
     // refill a recv request for a header.
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &num_rx_);
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &rx_ctx_);
 
-    num_rx_ -= ep_.PollRxCQ(num_rx_ - 1);
-    if (num_rx_ != 1) {
+    ep_.PollRxCQ(OFI_CTX_WR(&rx_ctx_) - 1, &rx_ctx_);
+    if (OFI_CTX_WR(&rx_ctx_) != 1) {
       // error
       return 0;
     }
@@ -171,7 +176,7 @@ class OFIChannel : public Channel {
   }
 
   size_t WriteV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) override {
-    assert(num_tx_ == 0);
+    assert(OFI_CTX_WR(&tx_ctx_) == 0);
     size_t len, total_len = 0;
     struct fi_msg_rma msg;
     std::vector<struct iovec> iov;
@@ -198,13 +203,13 @@ class OFIChannel : public Channel {
     msg.rma_iov = rma_iov.data();
     msg.rma_iov_count = rma_iov.size();
 
-    ep_.PostWrite(&msg, &num_tx_);
-    num_tx_ -= ep_.PollTxCQ(num_tx_);
-    return (num_tx_ == 0) ? total_len : 0;
+    ep_.PostWrite(&msg, &tx_ctx_);
+    ep_.PollTxCQ(OFI_CTX_WR(&tx_ctx_), &tx_ctx_);
+    return (OFI_CTX_WR(&tx_ctx_) == 0) ? total_len : 0;
   }
 
   size_t ReadV(const LocalMemoryRegion::ptr *lmr, const RemoteMemoryRegion *rmr, size_t cnt) override {
-    assert(num_tx_ == 0);
+    assert(OFI_CTX_WR(&tx_ctx_) == 0);
     size_t len, total_len = 0;
     struct fi_msg_rma msg;
     std::vector<struct iovec> iov;
@@ -231,9 +236,9 @@ class OFIChannel : public Channel {
     msg.rma_iov = rma_iov.data();
     msg.rma_iov_count = rma_iov.size();
 
-    ep_.PostRead(&msg, &num_tx_);
-    num_tx_ -= ep_.PollTxCQ(num_tx_);
-    return (num_tx_ == 0) ? total_len : 0;
+    ep_.PostRead(&msg, &tx_ctx_);
+    ep_.PollTxCQ(OFI_CTX_WR(&tx_ctx_), &tx_ctx_);
+    return (OFI_CTX_WR(&tx_ctx_) == 0) ? total_len : 0;
   }
 
   LocalMemoryRegion::ptr RegisterMemoryRegion(void *addr, size_t len, int type) const override {
@@ -259,8 +264,8 @@ class OFIChannel : public Channel {
   OFIEndpoint &ep_;
   fi_addr_t peer_addr_;
   uint64_t peer_desc_;
-  size_t num_tx_;
-  size_t num_rx_;
+  struct ofi_context tx_ctx_;
+  struct ofi_context rx_ctx_;
   // pre-allocated buffer for eager send/recv
   EagerBuffer recv_buf_;
 };

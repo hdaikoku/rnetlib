@@ -14,7 +14,9 @@ class OFIClient : public Client {
  public:
   OFIClient(const std::string &peer_addr, uint16_t peer_port, uint64_t self_desc, uint64_t peer_desc)
       : ep_(OFIEndpoint::GetInstance(peer_addr, peer_port, 0)),
-        peer_addr_(peer_addr), self_desc_(self_desc), peer_desc_(peer_desc) {}
+        peer_addr_(peer_addr), self_desc_(self_desc), peer_desc_(peer_desc) { ep_.RegisterContext(&tx_ctx_); }
+
+  ~OFIClient() override { ep_.DeregisterContext(&tx_ctx_); }
 
   Channel::ptr Connect() override {
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
@@ -29,10 +31,9 @@ class OFIClient : public Client {
     auto lmr = ep_.RegisterMemoryRegion(&self_addrinfo, sizeof(self_addrinfo), MR_LOCAL_READ);
     Channel::ptr ch(new OFIChannel(ep_, peer_addr, peer_desc_));
 
-    size_t num_tx = 0;
-    ep_.PostSend(lmr->GetAddr(), lmr->GetLength(), lmr->GetLKey(), peer_addr, TAG_CTR, &num_tx);
-    num_tx -= ep_.PollTxCQ(num_tx);
-    assert(num_tx == 0);
+    ep_.PostSend(lmr->GetAddr(), lmr->GetLength(), lmr->GetLKey(), peer_addr, TAG_CTR, &tx_ctx_);
+    ep_.PollTxCQ(OFI_CTX_WR(&tx_ctx_), &tx_ctx_);
+    assert(OFI_CTX_WR(&tx_ctx_) == 0);
 
     ch->Recv(&self_addrinfo.addrlen, sizeof(self_addrinfo.addrlen));
 
@@ -49,6 +50,7 @@ class OFIClient : public Client {
   std::string peer_addr_;
   uint64_t self_desc_;
   uint64_t peer_desc_;
+  struct ofi_context tx_ctx_;
 };
 
 } // namespace ofi

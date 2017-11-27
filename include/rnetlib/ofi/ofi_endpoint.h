@@ -15,6 +15,10 @@
 
 #define OFI_VERSION FI_VERSION(1, 5)
 
+#define OFI_CTX_ID(ctx) ((ctx)->id)
+#define OFI_CTX_WR(ctx) ((ctx)->wr)
+#define OFI_CTX_COMP(ctx) ((ctx)->comp)
+
 #define OFI_PRINTERR(tag, err)                                     \
   do {                                                             \
     std::cerr << __FILE__ << ":" << __LINE__ << " OFI_"#tag": "    \
@@ -30,18 +34,18 @@
     }                                                              \
   } while (0)                                                      \
 
-#define OFI_POST(post_func, comp_func, cnt)                               \
+#define OFI_POST(post_func, comp_func, ctx)                               \
   do {                                                                    \
     while (true) {                                                        \
       ssize_t ret = post_func;                                            \
       if (ret == 0) {                                                     \
-        (cnt)++;                                                          \
+        OFI_CTX_WR(ctx)++;                                                \
         break;                                                            \
       } else if (ret != -FI_EAGAIN) {                                     \
         OFI_PRINTERR(post, ret);                                          \
         return 0;                                                         \
       } else if (info_->domain_attr->data_progress != FI_PROGRESS_AUTO) { \
-        (cnt) -= comp_func(1);                                            \
+        comp_func(1, ctx);                                                \
       }                                                                   \
     }                                                                     \
   } while (0)                                                             \
@@ -60,6 +64,13 @@ struct ofi_addrinfo {
   uint64_t desc;
 };
 
+struct ofi_context {
+  struct fi_context ctx;
+  uint64_t id;
+  uint64_t wr;
+  uint64_t comp;
+};
+
 class OFIEndpoint {
  public:
   static OFIEndpoint &GetInstance(const std::string &addr, uint16_t port, uint64_t flags) {
@@ -68,6 +79,16 @@ class OFIEndpoint {
   }
 
   virtual ~OFIEndpoint() = default;
+
+  void RegisterContext(struct ofi_context *ctx) {
+    static uint64_t ctx_id = 0;
+    OFI_CTX_ID(ctx) = ctx_id++;
+    OFI_CTX_WR(ctx) = 0;
+    OFI_CTX_COMP(ctx) = 0;
+    ctx_.emplace(std::make_pair(OFI_CTX_ID(ctx), ctx));
+  }
+
+  void DeregisterContext(struct ofi_context *ctx) { ctx_.erase(OFI_CTX_ID(ctx)); }
 
   LocalMemoryRegion::ptr RegisterMemoryRegion(void *buf, size_t len, int type) {
     static uint64_t requested_key = 0;
@@ -91,56 +112,56 @@ class OFIEndpoint {
     return LocalMemoryRegion::ptr(new OFILocalMemoryRegion(tmp_mr, buf, len));
   }
 
-  ssize_t PostSend(const void *buf, size_t len, void *desc, fi_addr_t dst_addr, uint64_t tag, size_t *cnt) {
+  ssize_t PostSend(const void *buf, size_t len, void *desc, fi_addr_t dst_addr, uint64_t tag, struct ofi_context *ctx) {
     if (tag) {
-      OFI_POST(fi_tsend(ep_.get(), buf, len, desc, dst_addr, tag, &tx_ctx_), PollTxCQ, *cnt);
+      OFI_POST(fi_tsend(ep_.get(), buf, len, desc, dst_addr, tag, &ctx->ctx), PollTxCQ, ctx);
     } else {
-      OFI_POST(fi_send(ep_.get(), buf, len, desc, dst_addr, &tx_ctx_), PollTxCQ, *cnt);
+      OFI_POST(fi_send(ep_.get(), buf, len, desc, dst_addr, &ctx->ctx), PollTxCQ, ctx);
     }
 
     return 0;
   }
 
-  ssize_t PostSend(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, size_t *cnt) {
+  ssize_t PostSend(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, struct ofi_context *ctx) {
     size_t offset = 0;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_msg_iov) ? max_msg_iov : (iovcnt - offset);
-      OFI_POST(fi_sendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &tx_ctx_), PollTxCQ, *cnt);
+      OFI_POST(fi_sendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &ctx->ctx), PollTxCQ, ctx);
       offset += num_iov;
     }
 
     return 0;
   }
 
-  ssize_t PostRecv(void *buf, size_t len, void *desc, fi_addr_t src_addr, uint64_t tag, size_t *cnt) {
+  ssize_t PostRecv(void *buf, size_t len, void *desc, fi_addr_t src_addr, uint64_t tag, struct ofi_context *ctx) {
     if (tag) {
-      OFI_POST(fi_trecv(ep_.get(), buf, len, desc, src_addr, tag, 0, &rx_ctx_), PollRxCQ, *cnt);
+      OFI_POST(fi_trecv(ep_.get(), buf, len, desc, src_addr, tag, 0, &ctx->ctx), PollRxCQ, ctx);
     } else {
-      OFI_POST(fi_recv(ep_.get(), buf, len, desc, src_addr, &rx_ctx_), PollRxCQ, *cnt);
+      OFI_POST(fi_recv(ep_.get(), buf, len, desc, src_addr, ctx), PollRxCQ, ctx);
     }
 
     return 0;
   }
 
-  ssize_t PostRecv(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, size_t *cnt) {
+  ssize_t PostRecv(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t src_addr, struct ofi_context *ctx) {
     size_t offset = 0;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_msg_iov) ? max_msg_iov : (iovcnt - offset);
-      OFI_POST(fi_recvv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &rx_ctx_), PollRxCQ, *cnt);
+      OFI_POST(fi_recvv(ep_.get(), iov + offset, desc, num_iov, src_addr, &ctx->ctx), PollRxCQ, ctx);
       offset += num_iov;
     }
 
     return 0;
   }
 
-  ssize_t PostWrite(struct fi_msg_rma *msg, size_t *cnt) {
+  ssize_t PostWrite(struct fi_msg_rma *msg, struct ofi_context *ctx) {
     size_t offset = 0, iovcnt = msg->iov_count;
     auto msg_iov_head = msg->msg_iov;
     auto rma_iov_head = msg->rma_iov;
     auto desc_head = msg->desc;
-    msg->context = &tx_ctx_;
+    msg->context = &ctx->ctx;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_rma_iov) ? max_rma_iov : (iovcnt - offset);
@@ -149,19 +170,19 @@ class OFIEndpoint {
       msg->rma_iov = rma_iov_head + offset;
       msg->rma_iov_count = num_iov;
       msg->desc = desc_head + offset;
-      OFI_POST(fi_writemsg(ep_.get(), msg, 0), PollTxCQ, *cnt);
+      OFI_POST(fi_writemsg(ep_.get(), msg, 0), PollTxCQ, ctx);
       offset += num_iov;
     }
 
     return 0;
   }
 
-  ssize_t PostRead(struct fi_msg_rma *msg, size_t *cnt) {
+  ssize_t PostRead(struct fi_msg_rma *msg, struct ofi_context *ctx) {
     size_t offset = 0, iovcnt = msg->iov_count;
     auto msg_iov_head = msg->msg_iov;
     auto rma_iov_head = msg->rma_iov;
     auto desc_head = msg->desc;
-    msg->context = &tx_ctx_;
+    msg->context = &ctx->ctx;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_rma_iov) ? max_rma_iov : (iovcnt - offset);
@@ -170,16 +191,16 @@ class OFIEndpoint {
       msg->rma_iov = rma_iov_head + offset;
       msg->rma_iov_count = num_iov;
       msg->desc = desc_head + offset;
-      OFI_POST(fi_readmsg(ep_.get(), msg, 0), PollTxCQ, *cnt);
+      OFI_POST(fi_readmsg(ep_.get(), msg, 0), PollTxCQ, ctx);
       offset += num_iov;
     }
 
     return 0;
   }
 
-  size_t PollTxCQ(size_t count) { return PollCQ(tx_cq_.get(), count, &tx_ctx_); }
+  size_t PollTxCQ(size_t count, struct ofi_context *ctx) { return PollCQ(tx_cq_.get(), count, ctx); }
 
-  size_t PollRxCQ(size_t count) { return PollCQ(rx_cq_.get(), count, &rx_ctx_); }
+  size_t PollRxCQ(size_t count, struct ofi_context *ctx) { return PollCQ(rx_cq_.get(), count, ctx); }
 
   void InsertAddr(const void *addr, size_t count, fi_addr_t *fi_addr) {
     int ret = fi_av_insert(av_.get(), addr, 1, fi_addr, 0, nullptr);
@@ -217,8 +238,7 @@ class OFIEndpoint {
   ofi_ptr<struct fid_cq> rx_cq_;
   ofi_ptr<struct fid_av> av_;
   ofi_ptr<struct fid_ep> ep_;
-  struct fi_context tx_ctx_;
-  struct fi_context rx_ctx_;
+  std::unordered_map<size_t, struct ofi_context *> ctx_;
   size_t max_msg_iov;
   size_t max_rma_iov;
   struct ofi_addrinfo bind_addr_;
@@ -233,10 +253,9 @@ class OFIEndpoint {
       return;
     }
 
-    hints->caps = FI_MSG | FI_RMA | FI_TAGGED;
+    hints->caps = FI_MSG | FI_RMA | FI_TAGGED | FI_DIRECTED_RECV;
     hints->mode = FI_CONTEXT;
     hints->ep_attr->type = FI_EP_RDM;
-    hints->rx_attr->caps = FI_DIRECTED_RECV;
     hints->rx_attr->msg_order = FI_ORDER_SAS;
     hints->rx_attr->op_flags = FI_COMPLETION;
     hints->tx_attr->comp_order = FI_ORDER_NONE;
@@ -309,32 +328,34 @@ class OFIEndpoint {
     OFI_CALL(fi_getname(&ep_->fid, &bind_addr_.addr, &bind_addr_.addrlen), getname);
   }
 
-  size_t PollCQ(struct fid_cq *cq, size_t count, void *ctx) {
-    size_t polled = 0;
+  size_t PollCQ(struct fid_cq *cq, size_t count, struct ofi_context *ctx) {
     ssize_t ret = 0;
     struct fi_cq_err_entry comp;
 
-    while (count - polled) {
+    while (OFI_CTX_COMP(ctx) < count) {
       // FIXME: implement timeout
       ret = fi_cq_read(cq, &comp, 1);
       if (ret > 0) {
-        assert(comp.op_context == ctx);
-        polled++;
+        OFI_CTX_COMP(reinterpret_cast<struct ofi_context *>(comp.op_context))++;
       } else if (ret < 0 && ret == -FI_EAVAIL) {
         ret = fi_cq_readerr(cq, &comp, 0);
         if (ret < 0) {
           OFI_PRINTERR(cq_readerr, ret);
           break;
         }
+        OFI_CTX_COMP(reinterpret_cast<struct ofi_context *>(comp.op_context))++;
         std::cerr << fi_cq_strerror(cq, comp.prov_errno, comp.err_data, nullptr, 0) << std::endl;
-        polled++;
       } else if (ret < 0 && ret != -FI_EAGAIN) {
         OFI_PRINTERR(cq_read, ret);
         break;
       }
     }
 
-    return polled;
+    auto num_comp = OFI_CTX_COMP(ctx);
+    OFI_CTX_WR(ctx) -= num_comp;
+    OFI_CTX_COMP(ctx) = 0;
+
+    return num_comp;
   }
 };
 

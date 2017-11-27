@@ -12,7 +12,9 @@ namespace ofi {
 class OFIServer : public Server {
  public:
   OFIServer(const std::string &bind_addr, uint16_t bind_port)
-      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)), num_rx_(0), ai_idx_(0) {}
+      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)), ai_idx_(0) { ep_.RegisterContext(&rx_ctx_); }
+
+  ~OFIServer() override { ep_.DeregisterContext(&rx_ctx_); }
 
   bool Listen() override {
     ai_lmrs_[0] = ep_.RegisterMemoryRegion(&peer_ai_[0], sizeof(peer_ai_[0]), MR_LOCAL_WRITE);
@@ -23,8 +25,8 @@ class OFIServer : public Server {
 
   Channel::ptr Accept() override {
     PostAccept();
-    num_rx_ -= ep_.PollRxCQ(num_rx_ - 1);
-    assert(num_rx_ == 1);
+    ep_.PollRxCQ(OFI_CTX_WR(&rx_ctx_) - 1, &rx_ctx_);
+    assert(OFI_CTX_WR(&rx_ctx_) == 1);
     
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
     ep_.InsertAddr(&peer_ai_[ai_idx_].addr, 1, &peer_addr);
@@ -49,14 +51,14 @@ class OFIServer : public Server {
 
  private:
   OFIEndpoint &ep_;
+  int ai_idx_;
   std::array<struct ofi_addrinfo, 2> peer_ai_;
   std::array<LocalMemoryRegion::ptr, 2> ai_lmrs_;
-  size_t num_rx_;
-  int ai_idx_;
+  struct ofi_context rx_ctx_;
 
   void PostAccept() {
     ep_.PostRecv(ai_lmrs_[ai_idx_]->GetAddr(), ai_lmrs_[ai_idx_]->GetLength(), ai_lmrs_[ai_idx_]->GetLKey(),
-                 FI_ADDR_UNSPEC, TAG_CTR, &num_rx_);
+                 FI_ADDR_UNSPEC, TAG_CTR, &rx_ctx_);
     ai_idx_ = !ai_idx_;
   }
 };
