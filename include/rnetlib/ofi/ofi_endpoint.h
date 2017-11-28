@@ -92,14 +92,26 @@ class OFIEndpoint {
 
   LocalMemoryRegion::ptr RegisterMemoryRegion(void *buf, size_t len, int type) {
     static uint64_t requested_key = 0;
+    uint64_t access = 0;
 
-    // FIXME: skip local memory registration when FI_MR_LOCAL is off
-    uint64_t access = (FI_SEND | FI_RECV | FI_WRITE | FI_READ);
     if (type & MR_REMOTE_READ) {
       access |= FI_REMOTE_READ;
     }
     if (type & MR_REMOTE_WRITE) {
       access |= FI_REMOTE_WRITE;
+    }
+
+    if ((info_->mode & FI_LOCAL_MR) || (info_->domain_attr->mr_mode & FI_MR_LOCAL)) {
+      if (type & MR_LOCAL_READ) {
+        access |= (FI_SEND | FI_WRITE);
+      }
+      if (type & MR_LOCAL_WRITE) {
+        access |= (FI_RECV | FI_READ);
+      }
+    } else {
+      if (access == 0) {
+        return LocalMemoryRegion::ptr(new OFILocalMemoryRegion(nullptr, buf, len));
+      }
     }
 
     struct fid_mr *tmp_mr = nullptr;
@@ -126,7 +138,7 @@ class OFIEndpoint {
     size_t offset = 0;
 
     while (offset < iovcnt) {
-      auto num_iov = ((iovcnt - offset) > max_msg_iov) ? max_msg_iov : (iovcnt - offset);
+      auto num_iov = ((iovcnt - offset) > max_msg_iov_) ? max_msg_iov_ : (iovcnt - offset);
       OFI_POST(fi_sendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &ctx->ctx), PollTxCQ, ctx);
       offset += num_iov;
     }
@@ -148,7 +160,7 @@ class OFIEndpoint {
     size_t offset = 0;
 
     while (offset < iovcnt) {
-      auto num_iov = ((iovcnt - offset) > max_msg_iov) ? max_msg_iov : (iovcnt - offset);
+      auto num_iov = ((iovcnt - offset) > max_msg_iov_) ? max_msg_iov_ : (iovcnt - offset);
       OFI_POST(fi_recvv(ep_.get(), iov + offset, desc, num_iov, src_addr, &ctx->ctx), PollRxCQ, ctx);
       offset += num_iov;
     }
@@ -164,7 +176,7 @@ class OFIEndpoint {
     msg->context = &ctx->ctx;
 
     while (offset < iovcnt) {
-      auto num_iov = ((iovcnt - offset) > max_rma_iov) ? max_rma_iov : (iovcnt - offset);
+      auto num_iov = ((iovcnt - offset) > max_rma_iov_) ? max_rma_iov_ : (iovcnt - offset);
       msg->msg_iov = msg_iov_head + offset;
       msg->iov_count = num_iov;
       msg->rma_iov = rma_iov_head + offset;
@@ -185,7 +197,7 @@ class OFIEndpoint {
     msg->context = &ctx->ctx;
 
     while (offset < iovcnt) {
-      auto num_iov = ((iovcnt - offset) > max_rma_iov) ? max_rma_iov : (iovcnt - offset);
+      auto num_iov = ((iovcnt - offset) > max_rma_iov_) ? max_rma_iov_ : (iovcnt - offset);
       msg->msg_iov = msg_iov_head + offset;
       msg->iov_count = num_iov;
       msg->rma_iov = rma_iov_head + offset;
@@ -239,8 +251,8 @@ class OFIEndpoint {
   ofi_ptr<struct fid_av> av_;
   ofi_ptr<struct fid_ep> ep_;
   std::unordered_map<size_t, struct ofi_context *> ctx_;
-  size_t max_msg_iov;
-  size_t max_rma_iov;
+  size_t max_msg_iov_;
+  size_t max_rma_iov_;
   struct ofi_addrinfo bind_addr_;
 
   OFIEndpoint(const char *addr, uint16_t port, uint64_t flags)
@@ -255,9 +267,13 @@ class OFIEndpoint {
 
     hints->caps = FI_MSG | FI_RMA | FI_TAGGED | FI_DIRECTED_RECV;
     hints->mode = FI_CONTEXT;
+    hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
+    hints->domain_attr->data_progress = FI_PROGRESS_MANUAL;
+    hints->domain_attr->control_progress = FI_PROGRESS_MANUAL;
     hints->ep_attr->type = FI_EP_RDM;
     hints->rx_attr->msg_order = FI_ORDER_SAS;
     hints->rx_attr->op_flags = FI_COMPLETION;
+    hints->rx_attr->total_buffered_recv = 0; // FI_RM_ENABLED ensures buffering of unexpected messages
     hints->tx_attr->comp_order = FI_ORDER_NONE;
     hints->tx_attr->msg_order = FI_ORDER_SAS;
     hints->tx_attr->op_flags = FI_DELIVERY_COMPLETE | FI_COMPLETION;
@@ -267,8 +283,8 @@ class OFIEndpoint {
     OFI_CALL(fi_getinfo(OFI_VERSION, addr, std::to_string(port).c_str(), flags, hints.get(), &tmp_info), getinfo);
     info_.reset(tmp_info);
 
-    max_msg_iov = std::min(info_->tx_attr->iov_limit, info_->rx_attr->iov_limit);
-    max_rma_iov = info_->tx_attr->rma_iov_limit;
+    max_msg_iov_ = std::min(info_->tx_attr->iov_limit, info_->rx_attr->iov_limit);
+    max_rma_iov_ = info_->tx_attr->rma_iov_limit;
 
     // initialize fabric with the first provider found
     struct fid_fabric *tmp_fabric = nullptr;
