@@ -1,11 +1,7 @@
 #ifndef RNETLIB_SERVER_H_
 #define RNETLIB_SERVER_H_
 
-#include <functional>
-#include <future>
-
 #include "rnetlib/channel.h"
-#include "rnetlib/event_loop.h"
 
 namespace rnetlib {
 
