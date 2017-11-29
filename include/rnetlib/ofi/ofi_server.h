@@ -37,7 +37,7 @@ class OFIServer : public Server {
     return std::move(ch);
   }
 
-  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(Channel & )> on_established) override {
+  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(Channel & )> on_established) {
     std::promise<Channel::ptr> promise;
     return promise.get_future();
   }

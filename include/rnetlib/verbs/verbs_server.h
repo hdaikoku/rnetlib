@@ -51,7 +51,7 @@ class VerbsServer : public Server, public EventHandler {
     return std::move(channel_);
   }
 
-  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(Channel & )> on_established) override {
+  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(Channel &)> on_established) {
     on_established_ = std::move(on_established);
 
     // migrate rdma_cm_id to event

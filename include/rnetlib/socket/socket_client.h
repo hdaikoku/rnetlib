@@ -61,7 +61,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
     return std::move(ch);
   }
 
-  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
+  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) {
     on_established_ = std::move(on_established);
 
     auto ret = NonBlockingConnect();

@@ -16,9 +16,6 @@ class Client {
   virtual ~Client() = default;
 
   virtual Channel::ptr Connect() = 0;
-
-  virtual std::future<Channel::ptr> Connect(EventLoop &loop,
-                                            std::function<void(rnetlib::Channel &)> on_established = nullptr) = 0;
 };
 
 } // namespace rnetlib

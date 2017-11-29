@@ -77,7 +77,7 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
     return std::move(ch);
   }
 
-  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(rnetlib::Channel &)> on_established) override {
+  std::future<Channel::ptr> Accept(EventLoop &loop, std::function<void(rnetlib::Channel &)> on_established) {
     on_established_ = std::move(on_established);
 
     // set socket to non-blocking mode

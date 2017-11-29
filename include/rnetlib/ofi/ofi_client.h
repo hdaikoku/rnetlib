@@ -40,7 +40,7 @@ class OFIClient : public Client {
     return std::move(ch);
   }
 
-  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
+  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) {
     std::promise<Channel::ptr> pr;
     return pr.get_future();
   }

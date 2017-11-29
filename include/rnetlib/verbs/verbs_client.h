@@ -39,7 +39,7 @@ class VerbsClient : public Client, public EventHandler {
     return std::move(channel_);
   }
 
-  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) override {
+  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) {
     on_established_ = std::move(on_established);
 
     auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
