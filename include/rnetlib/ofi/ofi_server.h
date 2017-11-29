@@ -12,7 +12,10 @@ namespace ofi {
 class OFIServer : public Server {
  public:
   OFIServer(const std::string &bind_addr, uint16_t bind_port)
-      : ep_(OFIEndpoint::GetInstance(bind_addr, bind_port, FI_SOURCE)), ai_idx_(0) { ep_.RegisterContext(&rx_ctx_); }
+      : ep_(OFIEndpoint::GetInstance(nullptr, std::to_string(bind_port).c_str())), ai_idx_(0) {
+    // FIXME: bind endpoint to a specific local address
+    ep_.RegisterContext(&rx_ctx_);
+  }
 
   ~OFIServer() override { ep_.DeregisterContext(&rx_ctx_); }
 

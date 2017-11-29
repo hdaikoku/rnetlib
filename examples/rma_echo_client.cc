@@ -9,8 +9,8 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::PROV_SOCKET);
-  auto channel = client->Connect();
+  auto client = rnetlib::NewClient(rnetlib::PROV_OFI);
+  auto channel = client->Connect(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
 
   int msg = 10;
   auto lmr = channel->RegisterMemoryRegion(&msg, sizeof(msg), rnetlib::MR_REMOTE_WRITE | rnetlib::MR_LOCAL_READ);

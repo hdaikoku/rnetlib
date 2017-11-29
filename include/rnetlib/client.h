@@ -11,7 +11,7 @@ class Client {
 
   virtual ~Client() = default;
 
-  virtual Channel::ptr Connect() = 0;
+  virtual Channel::ptr Connect(const std::string &peer_addr, uint16_t peer_port, uint64_t peer_desc = 0) = 0;
 };
 
 } // namespace rnetlib

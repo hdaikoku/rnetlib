@@ -5,6 +5,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <future>
 
 #include "rnetlib/client.h"
 #include "rnetlib/socket/socket_channel.h"
@@ -28,13 +29,12 @@ namespace socket {
 
 class SocketClient : public Client, public SocketCommon, public EventHandler {
  public:
-  SocketClient(const std::string &peer_addr, uint16_t peer_port, uint64_t self_desc, uint64_t peer_desc)
-      : peer_addr_(peer_addr), peer_port_(peer_port), self_desc_(self_desc), peer_desc_(peer_desc) {}
+  explicit SocketClient(uint64_t self_desc) : self_desc_(self_desc) {}
 
-  virtual ~SocketClient() = default;
+  ~SocketClient() override = default;
 
-  Channel::ptr Connect() override {
-    auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
+  Channel::ptr Connect(const std::string &peer_addr, uint16_t peer_port, uint64_t peer_desc) override {
+    auto addr_info = Open(peer_addr.c_str(), peer_port, 0);
     if (!addr_info) {
       // TODO: log error
       return nullptr;
@@ -54,17 +54,18 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
       }
     }
 
-    Channel::ptr ch(new SocketChannel(sock_fd_, peer_desc_));
+    Channel::ptr ch(new SocketChannel(sock_fd_, peer_desc));
     ch->Send(&self_desc_, sizeof(self_desc_));
 
     // successfully connected.
     return std::move(ch);
   }
 
-  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) {
+  std::future<Channel::ptr> Connect(const std::string &peer_addr, uint16_t peer_port,
+                                    EventLoop &loop, std::function<void(Channel &)> on_established) {
     on_established_ = std::move(on_established);
 
-    auto ret = NonBlockingConnect();
+    auto ret = NonBlockingConnect(peer_addr, peer_port);
     switch (ret) {
       case kConnSuccess:
         loop.AddHandler(*this);
@@ -108,10 +109,7 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
   static const int kConnFailed = -1;
   static const int kConnSuccess = 0;
   static const int kConnEstablished = 1;
-  std::string peer_addr_;
-  uint16_t peer_port_;
   uint64_t self_desc_;
-  uint64_t peer_desc_;
   std::promise<Channel::ptr> promise_;
   std::function<void(Channel &)> on_established_;
 
@@ -123,8 +121,8 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
     promise_.set_value(std::move(channel));
   }
 
-  int NonBlockingConnect() {
-    auto addr_info = Open(peer_addr_.c_str(), peer_port_, 0);
+  int NonBlockingConnect(const std::string &peer_addr, uint16_t peer_port) {
+    auto addr_info = Open(peer_addr.c_str(), peer_port, 0);
     if (!addr_info) {
       // TODO: log error
       return kConnFailed;
@@ -159,20 +157,8 @@ class SocketClient : public Client, public SocketCommon, public EventHandler {
       OnEstablished();
     } else if (val == ECONNREFUSED) {
       // the peer is not ready yet.
-      // close socket, open it and try to connect again.
-      // FIXME: this logic for detecting ECONNREFUSED does NOT work on macOS.
       Close();
-      auto ret = NonBlockingConnect();
-      switch (ret) {
-        case kConnSuccess:
-          return 0;
-        case kConnEstablished:
-          OnEstablished();
-          break;
-        default:
-          promise_.set_value(nullptr);
-          break;
-      }
+      promise_.set_value(nullptr);
     } else {
       // unrecoverable error.
       Close();

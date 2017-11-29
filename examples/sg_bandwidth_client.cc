@@ -48,8 +48,8 @@ int main(int argc, const char **argv) {
   int num_iters = std::stoi(argv[4]);
 
   // FIXME: handle errors
-  auto client = rnetlib::NewClient(argv[1], static_cast<uint16_t>(std::stoul(argv[2])), rnetlib::PROV_SOCKET);
-  auto channel = client->Connect();
+  auto client = rnetlib::NewClient(rnetlib::PROV_OFI);
+  auto channel = client->Connect(argv[1], static_cast<uint16_t>(std::stoul(argv[2])));
 
   std::vector<std::unique_ptr<char[]>> blks;
   std::vector<rnetlib::LocalMemoryRegion::ptr> lmrs;

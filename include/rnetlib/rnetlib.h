@@ -27,24 +27,20 @@ enum Prov {
   PROV_SOCKET
 };
 
-static std::unique_ptr<Client> NewClient(const std::string &addr,
-                                         uint16_t port,
-                                         Prov prov,
-                                         uint64_t self_desc = 0,
-                                         uint64_t peer_desc = 0) {
+static std::unique_ptr<Client> NewClient(Prov prov, uint64_t self_desc = 0) {
 #ifdef RNETLIB_ENABLE_OFI
   if (prov == PROV_OFI) {
-    return Client::ptr(new ofi::OFIClient(addr, port, self_desc, peer_desc));
+    return Client::ptr(new ofi::OFIClient(self_desc));
   }
 #endif // RNETLIB_ENABLE_OFI
 
 #ifdef RNETLIB_ENABLE_VERBS
   if (prov == PROV_VERBS) {
-    return Client::ptr(new verbs::VerbsClient(addr, port, self_desc, peer_desc));
+    return Client::ptr(new verbs::VerbsClient(self_desc));
   }
 #endif // RNETLIB_ENABLE_VERBS
 
-  return Client::ptr(new socket::SocketClient(addr, port, self_desc, peer_desc));
+  return Client::ptr(new socket::SocketClient(self_desc));
 }
 
 static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Prov prov) {

@@ -9,7 +9,7 @@ int main(int argc, const char **argv) {
   }
 
   // FIXME: handle errors
-  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::PROV_SOCKET);
+  auto server = rnetlib::NewServer("", static_cast<uint16_t>(std::stoul(argv[1])), rnetlib::PROV_OFI);
   server->Listen();
   std::cout << "EchoServer: listening on port " << server->GetListenPort() << std::endl;
   auto channel = server->Accept();

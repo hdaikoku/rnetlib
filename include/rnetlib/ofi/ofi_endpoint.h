@@ -73,8 +73,8 @@ struct ofi_context {
 
 class OFIEndpoint {
  public:
-  static OFIEndpoint &GetInstance(const std::string &addr, uint16_t port, uint64_t flags) {
-    static OFIEndpoint ep(addr.empty() ? nullptr : addr.c_str(), port, flags);
+  static OFIEndpoint &GetInstance(const char *addr, const char *port) {
+    static OFIEndpoint ep(addr, port);
     return ep;
   }
 
@@ -214,6 +214,13 @@ class OFIEndpoint {
 
   size_t PollRxCQ(size_t count, struct ofi_context *ctx) { return PollCQ(rx_cq_.get(), count, ctx); }
 
+  void InsertAddr(const char *addr, uint16_t port, fi_addr_t *fi_addr) {
+    struct fi_info *info;
+    OFI_CALL(fi_getinfo(OFI_VERSION, addr, std::to_string(port).c_str(), 0, hints_.get(), &info), getinfo);
+    InsertAddr(info->dest_addr, 1, fi_addr);
+    fi_freeinfo(info);
+  }
+
   void InsertAddr(const void *addr, size_t count, fi_addr_t *fi_addr) {
     int ret = fi_av_insert(av_.get(), addr, 1, fi_addr, 0, nullptr);
     if (ret < 0) {
@@ -234,8 +241,6 @@ class OFIEndpoint {
 
   struct ofi_addrinfo &GetBindAddrInfo() { return bind_addr_; }
 
-  void *GetDestAddrPtr() { return info_->dest_addr; }
-
  private:
   template <typename T>
   using ofi_ptr = std::unique_ptr<T, std::function<void(T *)>>;
@@ -243,6 +248,7 @@ class OFIEndpoint {
   template <typename T>
   static void fid_deleter(T *fd) { OFI_CALL(fi_close(reinterpret_cast<struct fid *>(fd)), fid_close); }
 
+  ofi_ptr<struct fi_info> hints_;
   ofi_ptr<struct fi_info> info_;
   ofi_ptr<struct fid_fabric> fabric_;
   ofi_ptr<struct fid_domain> domain_;
@@ -255,32 +261,27 @@ class OFIEndpoint {
   size_t max_rma_iov_;
   struct ofi_addrinfo bind_addr_;
 
-  OFIEndpoint(const char *addr, uint16_t port, uint64_t flags)
-      : info_(nullptr, fi_freeinfo), fabric_(nullptr, fid_deleter<struct fid_fabric>),
-        domain_(nullptr, fid_deleter<struct fid_domain>), tx_cq_(nullptr, fid_deleter<struct fid_cq>),
-        rx_cq_(nullptr, fid_deleter<struct fid_cq>), av_(nullptr, fid_deleter<struct fid_av>),
-        ep_(nullptr, fid_deleter<struct fid_ep>) {
-    ofi_ptr<struct fi_info> hints(fi_allocinfo(), fi_freeinfo);
-    if (!hints) {
-      return;
-    }
-
-    hints->caps = FI_MSG | FI_RMA | FI_TAGGED | FI_DIRECTED_RECV;
-    hints->mode = FI_CONTEXT;
-    hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
-    hints->domain_attr->data_progress = FI_PROGRESS_MANUAL;
-    hints->domain_attr->control_progress = FI_PROGRESS_MANUAL;
-    hints->ep_attr->type = FI_EP_RDM;
-    hints->rx_attr->msg_order = FI_ORDER_SAS;
-    hints->rx_attr->op_flags = FI_COMPLETION;
-    hints->rx_attr->total_buffered_recv = 0; // FI_RM_ENABLED ensures buffering of unexpected messages
-    hints->tx_attr->comp_order = FI_ORDER_NONE;
-    hints->tx_attr->msg_order = FI_ORDER_SAS;
-    hints->tx_attr->op_flags = FI_DELIVERY_COMPLETE | FI_COMPLETION;
+  OFIEndpoint(const char *addr, const char *port)
+      : hints_(fi_allocinfo(), fi_freeinfo), info_(nullptr, fi_freeinfo),
+        fabric_(nullptr, fid_deleter<struct fid_fabric>), domain_(nullptr, fid_deleter<struct fid_domain>),
+        tx_cq_(nullptr, fid_deleter<struct fid_cq>), rx_cq_(nullptr, fid_deleter<struct fid_cq>),
+        av_(nullptr, fid_deleter<struct fid_av>), ep_(nullptr, fid_deleter<struct fid_ep>) {
+    hints_->caps = FI_MSG | FI_RMA | FI_TAGGED | FI_DIRECTED_RECV;
+    hints_->mode = FI_CONTEXT;
+    hints_->domain_attr->resource_mgmt = FI_RM_ENABLED;
+    hints_->domain_attr->data_progress = FI_PROGRESS_MANUAL;
+    hints_->domain_attr->control_progress = FI_PROGRESS_MANUAL;
+    hints_->ep_attr->type = FI_EP_RDM;
+    hints_->rx_attr->msg_order = FI_ORDER_SAS;
+    hints_->rx_attr->op_flags = FI_COMPLETION;
+    hints_->rx_attr->total_buffered_recv = 0; // FI_RM_ENABLED ensures buffering of unexpected messages
+    hints_->tx_attr->comp_order = FI_ORDER_NONE;
+    hints_->tx_attr->msg_order = FI_ORDER_SAS;
+    hints_->tx_attr->op_flags = FI_DELIVERY_COMPLETE | FI_COMPLETION;
 
     // get provider information
     struct fi_info *tmp_info = nullptr;
-    OFI_CALL(fi_getinfo(OFI_VERSION, addr, std::to_string(port).c_str(), flags, hints.get(), &tmp_info), getinfo);
+    OFI_CALL(fi_getinfo(OFI_VERSION, addr, port, 0, hints_.get(), &tmp_info), getinfo);
     info_.reset(tmp_info);
 
     max_msg_iov_ = std::min(info_->tx_attr->iov_limit, info_->rx_attr->iov_limit);

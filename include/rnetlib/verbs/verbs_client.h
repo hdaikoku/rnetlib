@@ -9,18 +9,17 @@ namespace verbs {
 
 class VerbsClient : public Client, public EventHandler {
  public:
-  VerbsClient(const std::string &peer_addr, uint16_t peer_port, uint64_t self_desc, uint64_t peer_desc)
-      : peer_addr_(peer_addr), peer_port_(peer_port), self_desc_(self_desc), peer_desc_(peer_desc) {}
+  explicit VerbsClient(uint64_t self_desc) : self_desc_(self_desc) {}
 
-  ~VerbsClient() = default;
+  ~VerbsClient() override = default;
 
-  Channel::ptr Connect() override {
-    auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+  Channel::ptr Connect(const std::string &peer_addr, uint16_t peer_port, uint64_t peer_desc) override {
+    auto id = VerbsCommon::NewRDMACommID(peer_addr.c_str(), peer_port, 0);
     if (!id) {
       return nullptr;
     }
 
-    channel_.reset(new VerbsChannel(std::move(id), peer_desc_));
+    channel_.reset(new VerbsChannel(std::move(id), peer_desc));
 
     struct rdma_conn_param conn_param;
     std::memset(&conn_param, 0, sizeof(conn_param));
@@ -39,10 +38,11 @@ class VerbsClient : public Client, public EventHandler {
     return std::move(channel_);
   }
 
-  std::future<Channel::ptr> Connect(EventLoop &loop, std::function<void(Channel &)> on_established) {
+  std::future<Channel::ptr> Connect(const std::string &peer_addr, uint16_t peer_port,
+                                    EventLoop &loop, std::function<void(Channel &)> on_established) {
     on_established_ = std::move(on_established);
 
-    auto id = VerbsCommon::NewRDMACommID(peer_addr_.c_str(), peer_port_, 0);
+    auto id = VerbsCommon::NewRDMACommID(peer_addr.c_str(), peer_port, 0);
     if (id) {
       channel_.reset(new VerbsChannel(std::move(id)));
 
@@ -90,10 +90,7 @@ class VerbsClient : public Client, public EventHandler {
 
  private:
   std::unique_ptr<VerbsChannel> channel_;
-  std::string peer_addr_;
-  uint16_t peer_port_;
   uint64_t self_desc_;
-  uint64_t peer_desc_;
   std::promise<Channel::ptr> promise_;
   std::function<void(Channel &)> on_established_;
 };
