@@ -34,8 +34,10 @@ class OFIServer : public Server {
     fi_addr_t peer_addr = FI_ADDR_UNSPEC;
     ep_.InsertAddr(&peer_ai_[ai_idx_].addr, &peer_addr);
 
-    Channel::ptr ch(new OFIChannel(ep_, peer_addr, peer_ai_[ai_idx_].desc));
-    ch->Send(&peer_ai_[ai_idx_].addrlen, sizeof(peer_ai_[ai_idx_].addrlen));
+    auto src_tag = ep_.GetNewSrcTag();
+    std::unique_ptr<OFIChannel> ch(new OFIChannel(ep_, peer_addr, peer_ai_[ai_idx_].desc, src_tag));
+    ch->SetDestTag(peer_ai_[ai_idx_].src_tag);
+    ch->Send(&src_tag, sizeof(src_tag));
 
     return std::move(ch);
   }
@@ -56,7 +58,7 @@ class OFIServer : public Server {
 
   void PostAccept() {
     ep_.PostRecv(ai_lmrs_[ai_idx_]->GetAddr(), ai_lmrs_[ai_idx_]->GetLength(), ai_lmrs_[ai_idx_]->GetLKey(),
-                 FI_ADDR_UNSPEC, TAG_CTR, &rx_req_);
+                 (TAG_PROTO_CTR << OFI_TAG_SOURCE_BITS), &rx_req_);
     ai_idx_ = !ai_idx_;
   }
 };

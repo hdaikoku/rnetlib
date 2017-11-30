@@ -13,11 +13,11 @@ namespace ofi {
 
 class OFIChannel : public Channel {
  public:
-  OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr, uint64_t peer_desc)
-      : ep_(ep), peer_addr_(peer_addr), peer_desc_(peer_desc), recv_buf_(*this) {
+  OFIChannel(OFIEndpoint &ep, fi_addr_t peer_addr, uint64_t peer_desc, uint64_t src_tag)
+      : ep_(ep), peer_addr_(peer_addr), peer_desc_(peer_desc), src_tag_(src_tag), dst_tag_(0), recv_buf_(*this) {
     std::memset(&tx_req_, 0, sizeof(tx_req_));
     std::memset(&rx_req_, 0, sizeof(rx_req_));
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &rx_req_);
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), src_tag_, &rx_req_);
   }
 
   ~OFIChannel() override { ep_.RemoveAddr(&peer_addr_); }
@@ -63,7 +63,7 @@ class OFIChannel : public Channel {
       if (sent_len == 0) {
         // this is the very first part of the transfer, send it to the pre-allocated ReceiveBuffer.
         auto sending_len = (len > EAGER_THRESHOLD) ? EAGER_THRESHOLD : len;
-        ep_.PostSend(addr, sending_len, lkey, peer_addr_, TAG_MSG, &tx_req_);
+        ep_.PostSend(addr, sending_len, lkey, peer_addr_, dst_tag_, &tx_req_);
         if (ep_.PollTxCQ(tx_req_.req, &tx_req_) != 1) {
           return 0;
         }
@@ -81,7 +81,7 @@ class OFIChannel : public Channel {
       sent_len += len;
     }
 
-    if (ep_.PostSend(iov.data(), desc.data(), iov.size(), peer_addr_, &tx_req_)) {
+    if (ep_.PostSend(iov.data(), desc.data(), iov.size(), peer_addr_, dst_tag_, &tx_req_)) {
       return 0;
     }
 
@@ -128,10 +128,10 @@ class OFIChannel : public Channel {
       recvd_len += len;
     }
 
-    ep_.PostRecv(iov.data(), desc.data(), iov.size(), peer_addr_, &rx_req_);
+    ep_.PostRecv(iov.data(), desc.data(), iov.size(), src_tag_, &rx_req_);
 
     // refill a recv request for a header.
-    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), peer_addr_, TAG_MSG, &rx_req_);
+    ep_.PostRecv(recv_buf_.GetAddr(), EAGER_THRESHOLD, recv_buf_.GetLKey(), src_tag_, &rx_req_);
 
     ep_.PollRxCQ(rx_req_.req - 1, &rx_req_);
     if (rx_req_.req != 1) {
@@ -256,10 +256,14 @@ class OFIChannel : public Channel {
     Recv(rmr, sizeof(RemoteMemoryRegion) * rmrcnt);
   }
 
+  void SetDestTag(uint64_t dst_tag) { dst_tag_ = dst_tag; }
+
  private:
   OFIEndpoint &ep_;
   fi_addr_t peer_addr_;
   uint64_t peer_desc_;
+  uint64_t src_tag_;
+  uint64_t dst_tag_;
   struct ofi_req tx_req_;
   struct ofi_req rx_req_;
   // pre-allocated buffer for eager send/recv

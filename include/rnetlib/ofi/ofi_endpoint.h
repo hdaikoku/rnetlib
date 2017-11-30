@@ -15,6 +15,11 @@
 
 #define OFI_VERSION FI_VERSION(1, 5)
 
+#define OFI_TAG_PROTO_BITS  (2)
+#define OFI_TAG_SOURCE_BITS (32)
+#define OFI_TAG_PROTO_MASK  (0x300000000ULL)
+#define OFI_TAG_SOURCE_MASK (0x0FFFFFFFFULL)
+
 #define OFI_CTX_REQ(ctx) ((ctx)->req->req)
 #define OFI_CTX_COMP(ctx) ((ctx)->req->comp)
 
@@ -67,15 +72,16 @@
 namespace rnetlib {
 namespace ofi {
 
-enum TagType {
-  TAG_MSG = 0,
-  TAG_CTR
+enum TagProto : uint64_t {
+  TAG_PROTO_MSG = 0,
+  TAG_PROTO_CTR
 };
 
 struct ofi_addrinfo {
   char addr[FI_NAME_MAX];
   size_t addrlen;
   uint64_t desc;
+  uint64_t src_tag;
 };
 
 struct ofi_req {
@@ -130,50 +136,42 @@ class OFIEndpoint {
     struct ofi_context *ctx = nullptr;
     OFI_CTX_NEW(ctx, req);
 
-    if (tag) {
-      OFI_POST(fi_tsend(ep_.get(), buf, len, desc, dst_addr, tag, &ctx->ctx), PollTxCQ, ctx);
-    } else {
-      OFI_POST(fi_send(ep_.get(), buf, len, desc, dst_addr, &ctx->ctx), PollTxCQ, ctx);
-    }
+    OFI_POST(fi_tsend(ep_.get(), buf, len, desc, dst_addr, tag, &ctx->ctx), PollTxCQ, ctx);
 
     return 0;
   }
 
-  ssize_t PostSend(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, struct ofi_req *req) {
+  ssize_t PostSend(struct iovec *iov, void **desc, size_t cnt, fi_addr_t dst_addr, uint64_t tag, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
     size_t offset = 0;
 
-    while (offset < iovcnt) {
-      auto num_iov = ((iovcnt - offset) > max_msg_iov_) ? max_msg_iov_ : (iovcnt - offset);
+    while (offset < cnt) {
+      auto num_iov = ((cnt - offset) > max_msg_iov_) ? max_msg_iov_ : (cnt - offset);
       OFI_CTX_NEW(ctx, req);
-      OFI_POST(fi_sendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &ctx->ctx), PollTxCQ, ctx);
+      OFI_POST(fi_tsendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, tag, &ctx->ctx), PollTxCQ, ctx);
       offset += num_iov;
     }
 
     return 0;
   }
 
-  ssize_t PostRecv(void *buf, size_t len, void *desc, fi_addr_t src_addr, uint64_t tag, struct ofi_req *req) {
+  ssize_t PostRecv(void *buf, size_t len, void *desc, uint64_t tag, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
     OFI_CTX_NEW(ctx, req);
 
-    if (tag) {
-      OFI_POST(fi_trecv(ep_.get(), buf, len, desc, src_addr, tag, 0, &ctx->ctx), PollRxCQ, ctx);
-    } else {
-      OFI_POST(fi_recv(ep_.get(), buf, len, desc, src_addr, ctx), PollRxCQ, ctx);
-    }
+    OFI_POST(fi_trecv(ep_.get(), buf, len, desc, 0, tag, 0, &ctx->ctx), PollRxCQ, ctx);
 
     return 0;
   }
 
-  ssize_t PostRecv(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t src_addr, struct ofi_req *req) {
+  ssize_t PostRecv(struct iovec *iov, void **desc, size_t cnt, uint64_t tag, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
     size_t offset = 0;
 
-    while (offset < iovcnt) {
-      auto num_iov = ((iovcnt - offset) > max_msg_iov_) ? max_msg_iov_ : (iovcnt - offset);
+    while (offset < cnt) {
+      auto num_iov = ((cnt - offset) > max_msg_iov_) ? max_msg_iov_ : (cnt - offset);
       OFI_CTX_NEW(ctx, req);
-      OFI_POST(fi_recvv(ep_.get(), iov + offset, desc, num_iov, src_addr, &ctx->ctx), PollRxCQ, ctx);
+      OFI_POST(fi_trecvv(ep_.get(), iov + offset, desc, num_iov, 0, tag, 0, &ctx->ctx), PollRxCQ, ctx);
       offset += num_iov;
     }
 
@@ -230,6 +228,11 @@ class OFIEndpoint {
 
   size_t PollRxCQ(size_t count, struct ofi_req *req) { return PollCQ(rx_cq_.get(), count, req); }
 
+  uint64_t GetNewSrcTag() const {
+    static uint64_t source_tag = 1;
+    return ((TAG_PROTO_MSG << OFI_TAG_SOURCE_BITS) | source_tag++);
+  }
+
   void InsertAddr(const char *addr, uint16_t port, fi_addr_t *fi_addr) {
     int ret = fi_av_insertsvc(av_.get(), addr, std::to_string(port).c_str(), fi_addr, 0, nullptr);
     if (ret < 1) {
@@ -282,12 +285,11 @@ class OFIEndpoint {
         fabric_(nullptr, fid_deleter<struct fid_fabric>), domain_(nullptr, fid_deleter<struct fid_domain>),
         tx_cq_(nullptr, fid_deleter<struct fid_cq>), rx_cq_(nullptr, fid_deleter<struct fid_cq>),
         av_(nullptr, fid_deleter<struct fid_av>), ep_(nullptr, fid_deleter<struct fid_ep>) {
-    hints_->caps = FI_MSG | FI_RMA | FI_TAGGED | FI_DIRECTED_RECV;
+    hints_->caps = FI_MSG | FI_RMA | FI_TAGGED;
     hints_->mode = FI_CONTEXT;
     hints_->domain_attr->resource_mgmt = FI_RM_ENABLED;
-    hints_->domain_attr->data_progress = FI_PROGRESS_MANUAL;
-    hints_->domain_attr->control_progress = FI_PROGRESS_MANUAL;
     hints_->ep_attr->type = FI_EP_RDM;
+    hints_->ep_attr->mem_tag_format = OFI_TAG_PROTO_MASK | OFI_TAG_SOURCE_MASK;
     hints_->rx_attr->msg_order = FI_ORDER_SAS;
     hints_->rx_attr->op_flags = FI_COMPLETION;
     hints_->rx_attr->total_buffered_recv = 0; // FI_RM_ENABLED ensures buffering of unexpected messages
