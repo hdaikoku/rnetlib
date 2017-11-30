@@ -141,11 +141,11 @@ class OFIEndpoint {
 
   ssize_t PostSend(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t dst_addr, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
-    OFI_CTX_NEW(ctx, req);
     size_t offset = 0;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_msg_iov_) ? max_msg_iov_ : (iovcnt - offset);
+      OFI_CTX_NEW(ctx, req);
       OFI_POST(fi_sendv(ep_.get(), iov + offset, desc, num_iov, dst_addr, &ctx->ctx), PollTxCQ, ctx);
       offset += num_iov;
     }
@@ -168,11 +168,11 @@ class OFIEndpoint {
 
   ssize_t PostRecv(struct iovec *iov, void **desc, size_t iovcnt, fi_addr_t src_addr, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
-    OFI_CTX_NEW(ctx, req);
     size_t offset = 0;
 
     while (offset < iovcnt) {
       auto num_iov = ((iovcnt - offset) > max_msg_iov_) ? max_msg_iov_ : (iovcnt - offset);
+      OFI_CTX_NEW(ctx, req);
       OFI_POST(fi_recvv(ep_.get(), iov + offset, desc, num_iov, src_addr, &ctx->ctx), PollRxCQ, ctx);
       offset += num_iov;
     }
@@ -182,20 +182,20 @@ class OFIEndpoint {
 
   ssize_t PostWrite(struct fi_msg_rma *msg, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
-    OFI_CTX_NEW(ctx, req);
     size_t offset = 0, iovcnt = msg->iov_count;
     auto msg_iov_head = msg->msg_iov;
     auto rma_iov_head = msg->rma_iov;
     auto desc_head = msg->desc;
-    msg->context = &ctx->ctx;
 
     while (offset < iovcnt) {
+      OFI_CTX_NEW(ctx, req);
       auto num_iov = ((iovcnt - offset) > max_rma_iov_) ? max_rma_iov_ : (iovcnt - offset);
       msg->msg_iov = msg_iov_head + offset;
       msg->iov_count = num_iov;
       msg->rma_iov = rma_iov_head + offset;
       msg->rma_iov_count = num_iov;
       msg->desc = desc_head + offset;
+      msg->context = &ctx->ctx;
       OFI_POST(fi_writemsg(ep_.get(), msg, 0), PollTxCQ, ctx);
       offset += num_iov;
     }
@@ -205,20 +205,20 @@ class OFIEndpoint {
 
   ssize_t PostRead(struct fi_msg_rma *msg, struct ofi_req *req) {
     struct ofi_context *ctx = nullptr;
-    OFI_CTX_NEW(ctx, req);
     size_t offset = 0, iovcnt = msg->iov_count;
     auto msg_iov_head = msg->msg_iov;
     auto rma_iov_head = msg->rma_iov;
     auto desc_head = msg->desc;
-    msg->context = &ctx->ctx;
 
     while (offset < iovcnt) {
+      OFI_CTX_NEW(ctx, req);
       auto num_iov = ((iovcnt - offset) > max_rma_iov_) ? max_rma_iov_ : (iovcnt - offset);
       msg->msg_iov = msg_iov_head + offset;
       msg->iov_count = num_iov;
       msg->rma_iov = rma_iov_head + offset;
       msg->rma_iov_count = num_iov;
       msg->desc = desc_head + offset;
+      msg->context = &ctx->ctx;
       OFI_POST(fi_readmsg(ep_.get(), msg, 0), PollTxCQ, ctx);
       offset += num_iov;
     }
@@ -246,8 +246,8 @@ class OFIEndpoint {
 
   void RemoveAddr(fi_addr_t *fi_addr) {
     int ret = fi_av_remove(av_.get(), fi_addr, 1, 0);
-    if (ret < 1) {
-      OFI_PRINTERR(av_insert, ret);
+    if (ret < 0) {
+      OFI_PRINTERR(av_remove, ret);
     }
   }
 
