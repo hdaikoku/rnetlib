@@ -23,7 +23,7 @@ class OFIChannel : public Channel {
   ~OFIChannel() override {
     ep_.DeregisterContext(&tx_ctx_);
     ep_.DeregisterContext(&rx_ctx_);
-    ep_.RemoveAddr(&peer_addr_, 1);
+    ep_.RemoveAddr(&peer_addr_);
   }
 
   uint64_t GetDesc() const override { return peer_desc_; }

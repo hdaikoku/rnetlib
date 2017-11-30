@@ -215,27 +215,23 @@ class OFIEndpoint {
   size_t PollRxCQ(size_t count, struct ofi_context *ctx) { return PollCQ(rx_cq_.get(), count, ctx); }
 
   void InsertAddr(const char *addr, uint16_t port, fi_addr_t *fi_addr) {
-    struct fi_info *info;
-    OFI_CALL(fi_getinfo(OFI_VERSION, addr, std::to_string(port).c_str(), 0, hints_.get(), &info), getinfo);
-    InsertAddr(info->dest_addr, 1, fi_addr);
-    fi_freeinfo(info);
-  }
-
-  void InsertAddr(const void *addr, size_t count, fi_addr_t *fi_addr) {
-    int ret = fi_av_insert(av_.get(), addr, 1, fi_addr, 0, nullptr);
-    if (ret < 0) {
+    int ret = fi_av_insertsvc(av_.get(), addr, std::to_string(port).c_str(), fi_addr, 0, nullptr);
+    if (ret < 1) {
       OFI_PRINTERR(av_insert, ret);
-    } else if (ret != count) {
-      // error
     }
   }
 
-  void RemoveAddr(fi_addr_t *fi_addr, size_t count) {
-    int ret = fi_av_remove(av_.get(), fi_addr, count, 0);
-    if (ret < 0) {
+  void InsertAddr(const void *addr, fi_addr_t *fi_addr) {
+    int ret = fi_av_insert(av_.get(), addr, 1, fi_addr, 0, nullptr);
+    if (ret < 1) {
       OFI_PRINTERR(av_insert, ret);
-    } else if (ret != count) {
-      // error
+    }
+  }
+
+  void RemoveAddr(fi_addr_t *fi_addr) {
+    int ret = fi_av_remove(av_.get(), fi_addr, 1, 0);
+    if (ret < 1) {
+      OFI_PRINTERR(av_insert, ret);
     }
   }
 
