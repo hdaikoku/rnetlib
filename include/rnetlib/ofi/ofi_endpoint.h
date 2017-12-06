@@ -286,7 +286,7 @@ class OFIEndpoint {
         tx_cq_(nullptr, fid_deleter<struct fid_cq>), rx_cq_(nullptr, fid_deleter<struct fid_cq>),
         av_(nullptr, fid_deleter<struct fid_av>), ep_(nullptr, fid_deleter<struct fid_ep>) {
     hints_->caps = FI_MSG | FI_RMA | FI_TAGGED;
-    hints_->mode = FI_CONTEXT;
+    hints_->mode = FI_CONTEXT | FI_ASYNC_IOV;
     hints_->domain_attr->resource_mgmt = FI_RM_ENABLED;
     hints_->ep_attr->type = FI_EP_RDM;
     hints_->ep_attr->mem_tag_format = OFI_TAG_PROTO_MASK | OFI_TAG_SOURCE_MASK;
@@ -319,7 +319,7 @@ class OFIEndpoint {
     struct fi_cq_attr cq_attr;
     std::memset(&cq_attr, 0, sizeof(cq_attr));
     cq_attr.wait_obj = FI_WAIT_NONE;
-    cq_attr.format = FI_CQ_FORMAT_CONTEXT;
+    cq_attr.format = FI_CQ_FORMAT_TAGGED;
 
     // outgoing completion queue
     cq_attr.size = info_->tx_attr->size;
