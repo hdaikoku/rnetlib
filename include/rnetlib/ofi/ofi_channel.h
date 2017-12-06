@@ -175,6 +175,7 @@ class OFIChannel : public Channel {
     assert(tx_req_.req == 0);
     size_t len, total_len = 0;
     struct fi_msg_rma msg;
+    std::memset(&msg, 0, sizeof(msg));
     std::vector<struct iovec> iov;
     std::vector<struct fi_rma_iov> rma_iov;
     std::vector<void *> desc;
@@ -198,6 +199,7 @@ class OFIChannel : public Channel {
     msg.iov_count = iov.size();
     msg.rma_iov = rma_iov.data();
     msg.rma_iov_count = rma_iov.size();
+    msg.desc = desc.data();
 
     ep_.PostWrite(&msg, &tx_req_);
     ep_.PollTxCQ(tx_req_.req, &tx_req_);
@@ -208,6 +210,7 @@ class OFIChannel : public Channel {
     assert(tx_req_.req == 0);
     size_t len, total_len = 0;
     struct fi_msg_rma msg;
+    std::memset(&msg, 0, sizeof(msg));
     std::vector<struct iovec> iov;
     std::vector<struct fi_rma_iov> rma_iov;
     std::vector<void *> desc;
@@ -231,6 +234,7 @@ class OFIChannel : public Channel {
     msg.iov_count = iov.size();
     msg.rma_iov = rma_iov.data();
     msg.rma_iov_count = rma_iov.size();
+    msg.desc = desc.data();
 
     ep_.PostRead(&msg, &tx_req_);
     ep_.PollTxCQ(tx_req_.req, &tx_req_);
