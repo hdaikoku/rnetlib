@@ -11,7 +11,7 @@
 #include <memory>
 #include <string>
 
-#ifdef RNETLIB_USE_RDMA
+#ifdef RNETLIB_ENABLE_VERBS
 // rsocket-specific functions
 #include <rdma/rsocket.h>
 
@@ -51,7 +51,7 @@
 #define S_GETSOCKOPT(s, l, n, v, ol) getsockopt(s, l, n, v, ol)
 #define S_POLL(f, n, t)              poll(f, n, t)
 #define S_GETPEERNAME(s, a, l)       getpeername(s, a, l)
-#endif // RNETLIB_USE_RDMA
+#endif // RNETLIB_ENABLE_VERBS
 
 namespace rnetlib {
 namespace socket {
@@ -84,14 +84,14 @@ class SocketCommon {
     std::unique_ptr<struct S_ADDRINFO, AddrInfoDeleter> results;
 
     std::memset(&hints, 0, sizeof(struct S_ADDRINFO));
-#ifdef RNETLIB_USE_RDMA
+#ifdef RNETLIB_ENABLE_VERBS
     hints.ai_flags = flags | RAI_FAMILY;
     hints.ai_port_space = RDMA_PS_TCP;
 #else
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_family = AF_INET;
     hints.ai_flags = flags;
-#endif //RNETLIB_USE_RDMA
+#endif // RNETLIB_ENABLE_VERBS
 
     struct S_ADDRINFO *tmp;
     int error = S_GETADDRINFO(const_cast<char *>(addr), const_cast<char *>(std::to_string(port).c_str()), &hints, &tmp);
@@ -130,14 +130,14 @@ class SocketCommon {
       return nullptr;
     }
 
-#ifdef RNETLIB_USE_RDMA
+#ifdef RNETLIB_ENABLE_VERBS
     // TODO: RDMA_INLINE should be user-configurable
     int val = 0;
     if (!SetSockOpt(SOL_RDMA, RDMA_INLINE, val)) {
       Close();
       return nullptr;
     }
-#endif //RNETLIB_USE_RDMA
+#endif // RNETLIB_ENABLE_VERBS
 
     return std::move(results);
   }

@@ -9,7 +9,7 @@
 #include "rnetlib/server.h"
 #include "rnetlib/socket/socket_channel.h"
 
-#ifdef RNETLIB_USE_RDMA
+#ifdef RNETLIB_ENABLE_VERBS
 // rsocket-specific functions
 #define S_ACCEPT(s, a, l)       raccept(s, a, l)
 #define S_BIND(s, a, l)         rbind(s, a, l)
@@ -27,7 +27,7 @@
 #define S_PASSIVE               AI_PASSIVE
 #define S_SRC_ADDR(a)           a->ai_addr
 #define S_SRC_ADDRLEN(a)        a->ai_addrlen
-#endif // RNETLIB_USE_RDMA
+#endif // RNETLIB_ENABLE_VERBS
 
 namespace rnetlib {
 namespace socket {
@@ -138,4 +138,4 @@ class SocketServer : public Server, public SocketCommon, public EventHandler {
 } // namespace socket
 } // namespace rnetlib
 
-#endif // RNETLIB_SOCKET_SOCKET_SERVER_H
+#endif // RNETLIB_SOCKET_SOCKET_SERVER_H_
