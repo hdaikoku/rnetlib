@@ -73,7 +73,7 @@ class OFIChannel : public Channel {
         if (len == 0) {
           continue;
         }
-        addr = reinterpret_cast<char *>(addr) + sending_len;
+        addr = static_cast<char *>(addr) + sending_len;
       }
 
       iov.push_back({addr, len});
@@ -114,7 +114,7 @@ class OFIChannel : public Channel {
           // the first SGE won't fit in the the pre-allocated ReceiveBuffer
           head_len = EAGER_THRESHOLD;
           len -= EAGER_THRESHOLD;
-          addr = reinterpret_cast<char *>(addr) + EAGER_THRESHOLD;
+          addr = static_cast<char *>(addr) + EAGER_THRESHOLD;
           recvd_len += EAGER_THRESHOLD;
         } else {
           head_len = len;

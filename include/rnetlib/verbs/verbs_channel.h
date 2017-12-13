@@ -149,7 +149,7 @@ class VerbsChannel : public Channel {
         if (len == 0) {
           continue;
         }
-        addr = reinterpret_cast<char *>(addr) + sending_len;
+        addr = static_cast<char *>(addr) + sending_len;
       }
 
       sges.push_back({reinterpret_cast<uintptr_t>(addr), static_cast<uint32_t>(len), lkey});
@@ -189,7 +189,7 @@ class VerbsChannel : public Channel {
           // the first SGE won't fit in the the pre-allocated ReceiveBuffer
           head_sge_len = EAGER_THRESHOLD;
           len -= EAGER_THRESHOLD;
-          addr = reinterpret_cast<char *>(addr) + EAGER_THRESHOLD;
+          addr = static_cast<char *>(addr) + EAGER_THRESHOLD;
           recvd_len += EAGER_THRESHOLD;
         } else {
           head_sge_len = len;
@@ -420,7 +420,7 @@ class VerbsChannel : public Channel {
 
       if (last_sge_rem) {
         sg_list[offset].addr += sg_list[offset].length;
-        raddr = reinterpret_cast<char *>(raddr) + sg_list[offset].length;
+        raddr = static_cast<char *>(raddr) + sg_list[offset].length;
         sg_list[offset].length = last_sge_rem;
       }
     }
