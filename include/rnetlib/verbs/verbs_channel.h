@@ -61,7 +61,7 @@ class VerbsChannel : public Channel {
       send_buf_.Write(buf, len);
       struct ibv_sge sge = {
           .addr = reinterpret_cast<uintptr_t>(send_buf_.GetAddr()),
-          .length = len,
+          .length = static_cast<uint32_t>(len),
           .lkey = *(reinterpret_cast<uint32_t *>(send_buf_.GetLKey()))
       };
       if (PostSend(IBV_WR_SEND, &sge, 1, nullptr, 0) != 1) {
@@ -149,7 +149,7 @@ class VerbsChannel : public Channel {
         if (len == 0) {
           continue;
         }
-        addr = addr + sending_len;
+        addr = reinterpret_cast<char *>(addr) + sending_len;
       }
 
       sges.push_back({reinterpret_cast<uintptr_t>(addr), static_cast<uint32_t>(len), lkey});
@@ -189,7 +189,7 @@ class VerbsChannel : public Channel {
           // the first SGE won't fit in the the pre-allocated ReceiveBuffer
           head_sge_len = EAGER_THRESHOLD;
           len -= EAGER_THRESHOLD;
-          addr = addr + EAGER_THRESHOLD;
+          addr = reinterpret_cast<char *>(addr) + EAGER_THRESHOLD;
           recvd_len += EAGER_THRESHOLD;
         } else {
           head_sge_len = len;
@@ -247,7 +247,7 @@ class VerbsChannel : public Channel {
       send_buf_.Write(buf, len);
       struct ibv_sge sge = {
           .addr = reinterpret_cast<uintptr_t>(send_buf_.GetAddr()),
-          .length = len,
+          .length = static_cast<uint32_t>(len),
           .lkey = *(reinterpret_cast<uint32_t *>(send_buf_.GetLKey()))
       };
       if (PostSend(IBV_WR_RDMA_WRITE, &sge, 1, reinterpret_cast<void *>(rmr.addr), rmr.rkey) != 1) {
@@ -420,7 +420,7 @@ class VerbsChannel : public Channel {
 
       if (last_sge_rem) {
         sg_list[offset].addr += sg_list[offset].length;
-        raddr += sg_list[offset].length;
+        raddr = reinterpret_cast<char *>(raddr) + sg_list[offset].length;
         sg_list[offset].length = last_sge_rem;
       }
     }

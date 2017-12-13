@@ -65,16 +65,18 @@ class VerbsServer : public Server, public EventHandler {
     std::unique_ptr<char[]> addrstr;
 
     switch (sa->sa_family) {
-      case AF_INET:
+      case AF_INET: {
         auto addr_in = reinterpret_cast<struct sockaddr_in *>(sa);
         addrstr.reset(new char[INET_ADDRSTRLEN]);
         inet_ntop(AF_INET, &addr_in->sin_addr, addrstr.get(), INET_ADDRSTRLEN);
         return addrstr.get();
-      case AF_INET6:
+      }
+      case AF_INET6: {
         auto addr_in6 = reinterpret_cast<struct sockaddr_in6 *>(sa);
         addrstr.reset(new char[INET6_ADDRSTRLEN]);
         inet_ntop(AF_INET6, &addr_in6->sin6_addr, addrstr.get(), INET6_ADDRSTRLEN);
         return addrstr.get();
+      }
       default:
         return "";
     }
