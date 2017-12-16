@@ -125,9 +125,20 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     return LocalMemoryRegion::ptr(new SocketLocalMemoryRegion(addr, len));
   }
 
-  void SynRemoteMemoryRegionV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {}
+  void SynRemoteMemoryRegionV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
+    std::vector<RemoteMemoryRegion> rmrs;
+    rmrs.reserve(lmrcnt);
 
-  void AckRemoteMemoryRegionV(RemoteMemoryRegion *rmr, size_t rmrcnt) override {}
+    for (auto i = 0; i < lmrcnt; i++) {
+      rmrs.emplace_back(*lmr[i]);
+    }
+
+    Send(rmrs.data(), sizeof(RemoteMemoryRegion) * rmrs.size());
+  }
+
+  void AckRemoteMemoryRegionV(RemoteMemoryRegion *rmr, size_t rmrcnt) override {
+    Recv(rmr, sizeof(RemoteMemoryRegion) * rmrcnt);
+  }
 
   int OnEvent(int event_type, void *arg) override {
     if (event_type & POLLOUT) {
