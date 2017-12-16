@@ -50,22 +50,30 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    std::vector<struct iovec> iov(lmrcnt);
+    std::vector<struct iovec> iov;
+    iov.reserve(lmrcnt);
     size_t total_len = 0;
     for (size_t i = 0; i < lmrcnt; i++) {
-      total_len += lmr[i]->GetLength();
-      iov[i] = {lmr[i]->GetAddr(), lmr[i]->GetLength()};
+      auto len = lmr[i]->GetLength();
+      if (len > 0) {
+        iov.push_back({lmr[i]->GetAddr(), len});
+        total_len += len;
+      }
     }
 
     return (SendIOV(iov.data(), iov.size()) == iov.size()) ? total_len : 0;
   }
 
   size_t RecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    std::vector<struct iovec> iov(lmrcnt);
+    std::vector<struct iovec> iov;
+    iov.reserve(lmrcnt);
     size_t total_len = 0;
     for (size_t i = 0; i < lmrcnt; i++) {
-      total_len += lmr[i]->GetLength();
-      iov[i] = {lmr[i]->GetAddr(), lmr[i]->GetLength()};
+      auto len = lmr[i]->GetLength();
+      if (len > 0) {
+        iov.push_back({lmr[i]->GetAddr(), len});
+        total_len += len;
+      }
     }
 
     return (RecvIOV(iov.data(), iov.size()) == iov.size()) ? total_len : 0;
@@ -73,10 +81,14 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    if (lmrcnt > 0) {
-      for (size_t i = 0; i < lmrcnt; i++) {
+    for (size_t i = 0; i < lmrcnt; i++) {
+      auto len = lmr[i]->GetLength();
+      if (len > 0) {
         send_iov_.push_back({lmr[i]->GetAddr(), lmr[i]->GetLength()});
       }
+    }
+
+    if (!send_iov_.empty()) {
       evloop.AddHandler(*this);
     }
 
@@ -85,10 +97,14 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
     // FIXME: check if this sock_fd is set to non-blocking mode.
-    if (lmrcnt > 0) {
-      for (size_t i = 0; i < lmrcnt; i++) {
-        recv_iov_.push_back({lmr[i]->GetAddr(), lmr[i]->GetLength()});
+    for (size_t i = 0; i < lmrcnt; i++) {
+      auto len = lmr[i]->GetLength();
+      if (len > 0) {
+        recv_iov_.push_back({lmr[i]->GetAddr(), len});
       }
+    }
+
+    if (!recv_iov_.empty()) {
       evloop.AddHandler(*this);
     }
 
@@ -184,7 +200,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   size_t SendIOV(struct iovec *iov, size_t iovcnt) const {
     size_t offset = 0;
 
-    while (iovcnt > offset) {
+    while (offset < iovcnt) {
       auto sent = S_WRITEV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
       if (sent > 0) {
         while (offset < iovcnt) {
@@ -212,7 +228,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   size_t RecvIOV(struct iovec *iov, size_t iovcnt) const {
     size_t offset = 0;
 
-    while (iovcnt > offset) {
+    while (offset < iovcnt) {
       auto recvd = S_READV(sock_fd_, iov + offset, (iovcnt - offset) > IOV_MAX ? IOV_MAX : (iovcnt - offset));
       if (recvd > 0) {
         while (offset < iovcnt) {
