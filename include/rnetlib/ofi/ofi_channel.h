@@ -24,8 +24,6 @@ class OFIChannel : public Channel {
 
   uint64_t GetDesc() const override { return peer_desc_; }
 
-  bool SetNonBlocking(bool non_blocking) override { return true; }
-
   size_t Send(void *buf, size_t len) override { return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ)); }
 
   size_t Recv(void *buf, size_t len) override { return Recv(RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE)); }

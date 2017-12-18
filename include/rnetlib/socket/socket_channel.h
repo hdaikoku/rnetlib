@@ -13,6 +13,7 @@
 #include "rnetlib/channel.h"
 #include "rnetlib/event_handler.h"
 #include "rnetlib/socket/socket_common.h"
+#include "rnetlib/socket/socket_event_loop.h"
 #include "rnetlib/socket/socket_local_memory_region.h"
 
 #ifndef IOV_MAX
@@ -25,11 +26,10 @@ namespace socket {
 class SocketChannel : public Channel, public EventHandler, public SocketCommon {
  public:
   explicit SocketChannel(int sock_fd) : SocketChannel(sock_fd, 0) {}
-  SocketChannel(int sock_fd, uint64_t peer_desc) : SocketCommon(sock_fd), peer_desc_(peer_desc) {}
+  SocketChannel(int sock_fd, uint64_t peer_desc)
+      : SocketCommon(sock_fd), peer_desc_(peer_desc), evloop_(new SocketEventLoop) { SetNonBlocking(true); }
 
   uint64_t GetDesc() const override { return peer_desc_; }
-
-  bool SetNonBlocking(bool non_blocking) override { return SocketCommon::SetNonBlocking(non_blocking); }
 
   size_t Send(void *buf, size_t len) override { return Send(RegisterMemoryRegion(buf, len, MR_LOCAL_READ)); }
 
@@ -50,39 +50,22 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   }
 
   size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    std::vector<struct iovec> iov;
-    iov.reserve(lmrcnt);
-    size_t total_len = 0;
-    for (size_t i = 0; i < lmrcnt; i++) {
-      auto len = lmr[i]->GetLength();
-      if (len > 0) {
-        iov.push_back({lmr[i]->GetAddr(), len});
-        total_len += len;
-      }
-    }
-
-    return (SendIOV(iov.data(), iov.size()) == iov.size()) ? total_len : 0;
+    auto ret = ISendV(lmr, lmrcnt, *evloop_);
+    evloop_->WaitAll(-1);
+    return ret;
   }
 
   size_t RecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    std::vector<struct iovec> iov;
-    iov.reserve(lmrcnt);
-    size_t total_len = 0;
-    for (size_t i = 0; i < lmrcnt; i++) {
-      auto len = lmr[i]->GetLength();
-      if (len > 0) {
-        iov.push_back({lmr[i]->GetAddr(), len});
-        total_len += len;
-      }
-    }
-
-    return (RecvIOV(iov.data(), iov.size()) == iov.size()) ? total_len : 0;
+    auto ret = IRecvV(lmr, lmrcnt, *evloop_);
+    evloop_->WaitAll(-1);
+    return ret;
   }
 
   size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
-    // FIXME: check if this sock_fd is set to non-blocking mode.
+    size_t total_len = 0;
     for (size_t i = 0; i < lmrcnt; i++) {
       auto len = lmr[i]->GetLength();
+      total_len += len;
       if (len > 0) {
         send_iov_.push_back({lmr[i]->GetAddr(), lmr[i]->GetLength()});
       }
@@ -92,13 +75,14 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
       evloop.AddHandler(*this);
     }
 
-    return lmrcnt;
+    return total_len;
   }
 
   size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
-    // FIXME: check if this sock_fd is set to non-blocking mode.
+    size_t total_len = 0;
     for (size_t i = 0; i < lmrcnt; i++) {
       auto len = lmr[i]->GetLength();
+      total_len += len;
       if (len > 0) {
         recv_iov_.push_back({lmr[i]->GetAddr(), len});
       }
@@ -108,7 +92,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
       evloop.AddHandler(*this);
     }
 
-    return lmrcnt;
+    return total_len;
   }
 
   size_t Write(void *buf, size_t len, const RemoteMemoryRegion &rmr) override {
@@ -196,6 +180,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
   uint64_t peer_desc_;
   std::vector<struct iovec> send_iov_;
   std::vector<struct iovec> recv_iov_;
+  EventLoop::ptr evloop_;
 
   size_t SendIOV(struct iovec *iov, size_t iovcnt) const {
     size_t offset = 0;

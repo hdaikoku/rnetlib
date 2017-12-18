@@ -27,7 +27,7 @@ enum Prov {
   PROV_SOCKET
 };
 
-static std::unique_ptr<Client> NewClient(Prov prov, uint64_t self_desc = 0) {
+static Client::ptr NewClient(Prov prov, uint64_t self_desc = 0) {
 #ifdef RNETLIB_ENABLE_OFI
   if (prov == PROV_OFI) {
     return Client::ptr(new ofi::OFIClient(self_desc));
@@ -43,7 +43,7 @@ static std::unique_ptr<Client> NewClient(Prov prov, uint64_t self_desc = 0) {
   return Client::ptr(new socket::SocketClient(self_desc));
 }
 
-static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port, Prov prov) {
+static Server::ptr NewServer(const std::string &addr, uint16_t port, Prov prov) {
 #ifdef RNETLIB_ENABLE_OFI
   if (prov == PROV_OFI) {
     return Server::ptr(new ofi::OFIServer(addr, port));
@@ -59,7 +59,7 @@ static std::unique_ptr<Server> NewServer(const std::string &addr, uint16_t port,
   return Server::ptr(new socket::SocketServer(addr, port));
 }
 
-static std::unique_ptr<EventLoop> NewEventLoop(Prov prov) {
+static EventLoop::ptr NewEventLoop(Prov prov) {
 #ifdef RNETLIB_ENABLE_VERBS
   if (prov == PROV_VERBS) {
     return std::unique_ptr<EventLoop>(new verbs::VerbsEventLoop);

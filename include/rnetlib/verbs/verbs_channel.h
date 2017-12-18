@@ -53,8 +53,6 @@ class VerbsChannel : public Channel {
 
   uint64_t GetDesc() const override { return peer_desc_; }
 
-  bool SetNonBlocking(bool non_blocking) override { return true; }
-
   size_t Send(void *buf, size_t len) override {
     if (len <= EAGER_THRESHOLD) {
       // eager-send

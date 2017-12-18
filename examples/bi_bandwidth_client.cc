@@ -7,7 +7,6 @@ void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
   std::unique_ptr<char[]> msg(new char[msg_len]);
   std::memset(msg.get(), 'a', msg_len);
 
-  channel.SetNonBlocking(true);
   auto evloop = rnetlib::NewEventLoop(rnetlib::PROV_SOCKET);
 
   auto beg = std::chrono::steady_clock::now();
