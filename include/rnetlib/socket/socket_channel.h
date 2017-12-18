@@ -39,29 +39,29 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
 
   size_t Recv(const LocalMemoryRegion::ptr &lmr) override { return RecvV(&lmr, 1); }
 
-  size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
+  size_t ISend(void *buf, size_t len, const EventLoop::ptr &evloop) override {
     auto lmr = RegisterMemoryRegion(buf, len, MR_LOCAL_READ);
     return ISendV(&lmr, 1, evloop);
   }
 
-  size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
+  size_t IRecv(void *buf, size_t len, const EventLoop::ptr &evloop) override {
     auto lmr = RegisterMemoryRegion(buf, len, MR_LOCAL_WRITE);
     return IRecvV(&lmr, 1, evloop);
   }
 
   size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    auto ret = ISendV(lmr, lmrcnt, *evloop_);
+    auto ret = ISendV(lmr, lmrcnt, evloop_);
     evloop_->WaitAll(-1);
     return ret;
   }
 
   size_t RecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) override {
-    auto ret = IRecvV(lmr, lmrcnt, *evloop_);
+    auto ret = IRecvV(lmr, lmrcnt, evloop_);
     evloop_->WaitAll(-1);
     return ret;
   }
 
-  size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
+  size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, const EventLoop::ptr &evloop) override {
     size_t total_len = 0;
     for (size_t i = 0; i < lmrcnt; i++) {
       auto len = lmr[i]->GetLength();
@@ -72,13 +72,13 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     }
 
     if (!send_iov_.empty()) {
-      evloop.AddHandler(*this);
+      evloop->AddHandler(*this);
     }
 
     return total_len;
   }
 
-  size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
+  size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, const EventLoop::ptr &evloop) override {
     size_t total_len = 0;
     for (size_t i = 0; i < lmrcnt; i++) {
       auto len = lmr[i]->GetLength();
@@ -89,7 +89,7 @@ class SocketChannel : public Channel, public EventHandler, public SocketCommon {
     }
 
     if (!recv_iov_.empty()) {
-      evloop.AddHandler(*this);
+      evloop->AddHandler(*this);
     }
 
     return total_len;

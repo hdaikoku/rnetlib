@@ -102,12 +102,12 @@ class VerbsChannel : public Channel {
 
   size_t Recv(const LocalMemoryRegion::ptr &lmr) override { return RecvV(&lmr, 1); }
 
-  size_t ISend(void *buf, size_t len, EventLoop &evloop) override {
+  size_t ISend(void *buf, size_t len, const EventLoop::ptr &evloop) override {
     // TODO: implement this.
     return 0;
   }
 
-  size_t IRecv(void *buf, size_t len, EventLoop &evloop) override {
+  size_t IRecv(void *buf, size_t len, const EventLoop::ptr &evloop) override {
     // TODO: implement this.
     return 0;
   }
@@ -228,12 +228,12 @@ class VerbsChannel : public Channel {
     return recvd_len;
   }
 
-  size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
+  size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, const EventLoop::ptr &evloop) override {
     // TODO: implement this.
     return 0;
   }
 
-  size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) override {
+  size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, const EventLoop::ptr &evloop) override {
     // TODO: implement this.
     return 0;
   }

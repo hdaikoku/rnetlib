@@ -11,8 +11,8 @@ void do_pingpong(rnetlib::Channel &channel, size_t msg_len) {
 
   auto beg = std::chrono::steady_clock::now();
   for (int i = 0; i < 2500; i++) {
-    channel.IRecv(msg.get(), msg_len, *evloop);
-    channel.ISend(msg.get(), msg_len, *evloop);
+    channel.IRecv(msg.get(), msg_len, evloop);
+    channel.ISend(msg.get(), msg_len, evloop);
   }
   evloop->WaitAll(300);
   auto end = std::chrono::steady_clock::now();

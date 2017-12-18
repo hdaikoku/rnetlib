@@ -23,17 +23,17 @@ class Channel {
 
   virtual size_t Recv(const LocalMemoryRegion::ptr &lmr) = 0;
 
-  virtual size_t ISend(void *buf, size_t len, EventLoop &evloop) = 0;
+  virtual size_t ISend(void *buf, size_t len, const EventLoop::ptr &evloop) = 0;
 
-  virtual size_t IRecv(void *buf, size_t len, EventLoop &evloop) = 0;
+  virtual size_t IRecv(void *buf, size_t len, const EventLoop::ptr &evloop) = 0;
 
   virtual size_t SendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) = 0;
 
   virtual size_t RecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt) = 0;
 
-  virtual size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) = 0;
+  virtual size_t ISendV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, const EventLoop::ptr &evloop) = 0;
 
-  virtual size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, EventLoop &evloop) = 0;
+  virtual size_t IRecvV(const LocalMemoryRegion::ptr *lmr, size_t lmrcnt, const EventLoop::ptr &evloop) = 0;
 
   virtual size_t Write(void *buf, size_t len, const RemoteMemoryRegion &rmr) = 0;
 
