@@ -3,7 +3,7 @@
 
 #include "rnetlib/channel.h"
 
-#define EAGER_THRESHOLD 262144
+#define EAGER_THRESHOLD 524288
 
 namespace rnetlib {
 
