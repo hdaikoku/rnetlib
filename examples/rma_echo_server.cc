@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 
 #include <rnetlib/rnetlib.h>
