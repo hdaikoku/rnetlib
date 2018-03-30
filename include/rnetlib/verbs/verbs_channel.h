@@ -30,7 +30,7 @@ class VerbsChannel : public Channel {
     // max_recv_wr has to be at least twice as big as max_send_wr
     // so that Recv Queue constantly keeps "max_send_wr" requests for incoming requests.
     max_recv_wr_ = std::min(attr.cap.max_send_wr, attr.cap.max_recv_wr);
-    max_send_wr_ = max_recv_wr_ - 1;
+    max_send_wr_ = max_recv_wr_ - 2;
     max_recv_sge_ = max_send_sge_ = std::min(attr.cap.max_send_sge, attr.cap.max_recv_sge);
 
     struct ibv_port_attr port_attr;
@@ -368,6 +368,10 @@ class VerbsChannel : public Channel {
   EagerBuffer recv_buf_;
   EagerBuffer send_buf_;
 
+  /***
+    FIXME: the current implementation could exhaust recv_wrs in remote QP
+    when sending more than max_send_wr_ requests at a time
+  */
   int PostSend(enum ibv_wr_opcode opcode, struct ibv_sge *sg_list, int num_sges, void *raddr, uint32_t rkey) {
     int offset = 0;
     struct ibv_send_wr wr, *bad_wr;
